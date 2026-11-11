@@ -4,8 +4,158 @@ Feature: Cross-source data comparison # app/features/data_compare.feature:2
   I want to compare recordsets between databases, Excel files, APIs and the UI
   So that migrations and pipelines move data without loss or corruption
   @demo
+  Scenario: Customers in the database match the Excel extract                 # app/features/data_compare.feature:8
+    Given the compare config "app/datasets/compare/customers_db_vs_excel.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                            # pyassure/steps/data_steps.py:48
+    Then the source and target row counts should match                        # pyassure/steps/data_steps.py:69
+    And there should be no duplicate primary keys in the source               # pyassure/steps/data_steps.py:90
+    And there should be no records missing in the target                      # pyassure/steps/data_steps.py:76
+    And there should be no records missing in the source                      # pyassure/steps/data_steps.py:83
+    And there should be no field mismatches                                   # pyassure/steps/data_steps.py:106
+
+  @demo
   Scenario Outline: Compare configs can be batched with one overall assertion -- @1.1   # app/features/data_compare.feature:25
     Given the compare config "app/datasets/compare/customers_db_vs_excel.yml"           # pyassure/steps/data_steps.py:41
     When I run the data comparison                                                      # pyassure/steps/data_steps.py:48
     Then the data comparison should pass                                                # pyassure/steps/data_steps.py:140
+
+  @demo
+  Scenario: Known differences stay within the agreed tolerance                      # app/features/data_compare.feature:28
+    Given the compare config "app/datasets/compare/customers_db_vs_excel_diffs.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                                  # pyassure/steps/data_steps.py:48
+    Then the field "NAME" should have no mismatches                                 # pyassure/steps/data_steps.py:119
+    And the field "STATUS" should have no mismatches                                # pyassure/steps/data_steps.py:119
+    And the mismatch percentage should be at most 15                                # pyassure/steps/data_steps.py:132
+
+  @demo_fail
+  Scenario: Customers with known differences are detected                           # app/features/data_compare.feature:36
+    Given the compare config "app/datasets/compare/customers_db_vs_excel_diffs.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                                  # pyassure/steps/data_steps.py:48
+    Then there should be no records missing in the target                           # pyassure/steps/data_steps.py:76
+      ASSERT FAILED: No records missing in target: expected 0; actual 1. Keys present in source but absent in target
+
+    And there should be no field mismatches                                         # None
+
+  @snowflake @requires_creds
+  Scenario: Snowflake DEV and QA ORDERS are identical                       # app/features/data_compare.feature:43
+    Given the compare config "app/datasets/compare/snowflake_dev_vs_qa.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                          # pyassure/steps/data_steps.py:48
+      Traceback (most recent call last):
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\model.py", line 1991, in run
+          match.run(runner.context)
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\matchers.py", line 105, in run
+          self.func(context, *args, **kwargs)
+        File "C:\dev\pyassure\pyassure\pyassure\steps\data_steps.py", line 53, in step_run_comparison
+          source = fetch_dataset(cfg["source"])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 242, in fetch_dataset
+          with build_connector(endpoint) as conn:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 220, in build_connector
+          settings: Dict[str, Any] = dict(connection(endpoint["connection"])) if endpoint.get("connection") else {}
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\config.py", line 138, in connection
+          raise ConfigError(f"Connection '{name}': environment variables not set for {unresolved}")
+      pyassure.config.ConfigError: Connection 'snowflake_dev': environment variables not set for ['account', 'user', 'password']
+
+    Then the data comparison should pass                                    # None
+
+  @oracle @snowflake @requires_creds
+  Scenario: Oracle to Snowflake customer migration is complete              # app/features/data_compare.feature:49
+    Given the compare config "app/datasets/compare/oracle_vs_snowflake.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                          # pyassure/steps/data_steps.py:48
+      Traceback (most recent call last):
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\model.py", line 1991, in run
+          match.run(runner.context)
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\matchers.py", line 105, in run
+          self.func(context, *args, **kwargs)
+        File "C:\dev\pyassure\pyassure\pyassure\steps\data_steps.py", line 53, in step_run_comparison
+          source = fetch_dataset(cfg["source"])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 242, in fetch_dataset
+          with build_connector(endpoint) as conn:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 220, in build_connector
+          settings: Dict[str, Any] = dict(connection(endpoint["connection"])) if endpoint.get("connection") else {}
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\config.py", line 138, in connection
+          raise ConfigError(f"Connection '{name}': environment variables not set for {unresolved}")
+      pyassure.config.ConfigError: Connection 'oracle_prod': environment variables not set for ['user', 'password', 'host', 'service_name']
+
+    Then the data comparison should pass                                    # None
+
+  @databricks @excel @requires_creds
+  Scenario: Databricks prices match the signed-off Excel sheet              # app/features/data_compare.feature:55
+    Given the compare config "app/datasets/compare/databricks_vs_excel.yml" # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                          # pyassure/steps/data_steps.py:48
+      Traceback (most recent call last):
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\model.py", line 1991, in run
+          match.run(runner.context)
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\matchers.py", line 105, in run
+          self.func(context, *args, **kwargs)
+        File "C:\dev\pyassure\pyassure\pyassure\steps\data_steps.py", line 53, in step_run_comparison
+          source = fetch_dataset(cfg["source"])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 242, in fetch_dataset
+          with build_connector(endpoint) as conn:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 220, in build_connector
+          settings: Dict[str, Any] = dict(connection(endpoint["connection"])) if endpoint.get("connection") else {}
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\config.py", line 138, in connection
+          raise ConfigError(f"Connection '{name}': environment variables not set for {unresolved}")
+      pyassure.config.ConfigError: Connection 'databricks_dev': environment variables not set for ['server_hostname', 'http_path', 'access_token']
+
+    Then the data comparison should pass                                    # None
+
+@db @validation
+Feature: Table data sanity validation # app/features/data_validation.feature:2
+  As a data steward
+  I want to run sanity checks on a table or query result
+  So that bad data is caught early
+  @demo
+  Scenario: Clean ORDERS data passes every sanity check                    # app/features/data_validation.feature:8
+    Given the validation config "app/datasets/validation/orders_clean.yml" # pyassure/steps/data_steps.py:185
+    When I run the data validations                                        # pyassure/steps/data_steps.py:192
+    Then all validations should pass                                       # pyassure/steps/data_steps.py:211
+
+  @demo
+  Scenario: Individual check groups can be asserted separately             # app/features/data_validation.feature:14
+    Given the validation config "app/datasets/validation/orders_clean.yml" # pyassure/steps/data_steps.py:185
+    When I run the data validations                                        # pyassure/steps/data_steps.py:192
+    Then all "not_null" validations should pass                            # pyassure/steps/data_steps.py:216
+    And all "numeric" validations should pass                              # pyassure/steps/data_steps.py:216
+    And the validation "no_orphan_orders" should pass                      # pyassure/steps/data_steps.py:223
+
+  @demo_fail
+  Scenario: Dirty ORDERS data is flagged                                   # app/features/data_validation.feature:22
+    Given the validation config "app/datasets/validation/orders_dirty.yml" # pyassure/steps/data_steps.py:185
+    When I run the data validations                                        # pyassure/steps/data_steps.py:192
+    Then all validations should pass                                       # pyassure/steps/data_steps.py:211
+      ASSERT FAILED: 7 validation(s) failed - see report
+
+
+  @snowflake @requires_creds
+  Scenario: Snowflake SALES.ORDERS passes sanity checks                        # app/features/data_validation.feature:28
+    Given the validation config "app/datasets/validation/snowflake_orders.yml" # pyassure/steps/data_steps.py:185
+    When I run the data validations                                            # pyassure/steps/data_steps.py:192
+      Traceback (most recent call last):
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\model.py", line 1991, in run
+          match.run(runner.context)
+        File "C:\Users\RiteshB\AppData\Local\Programs\Python\Python312\Lib\site-packages\behave\matchers.py", line 105, in run
+          self.func(context, *args, **kwargs)
+        File "C:\dev\pyassure\pyassure\pyassure\steps\data_steps.py", line 195, in step_run_validations
+          df = fetch_dataset(cfg)                      # the config's top level IS the endpoint
+               ^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 242, in fetch_dataset
+          with build_connector(endpoint) as conn:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\data\connectors.py", line 220, in build_connector
+          settings: Dict[str, Any] = dict(connection(endpoint["connection"])) if endpoint.get("connection") else {}
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "C:\dev\pyassure\pyassure\pyassure\config.py", line 138, in connection
+          raise ConfigError(f"Connection '{name}': environment variables not set for {unresolved}")
+      pyassure.config.ConfigError: Connection 'snowflake_dev': environment variables not set for ['account', 'user', 'password']
+
+    Then all validations should pass                                           # None
 

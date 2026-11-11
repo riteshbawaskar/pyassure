@@ -38,8 +38,8 @@ def ensure() -> Optional[subprocess.Popen]:
     cfg = section("web_server")
     if not (cfg["command"] and cfg["url"]) or is_up(cfg["url"]):
         return None
-    proc = subprocess.Popen(shlex.split(cfg["command"].replace("{python}", sys.executable)), cwd=BASE_DIR,
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    command = [sys.executable if arg == "{python}" else arg for arg in shlex.split(cfg["command"])]
+    proc = subprocess.Popen(command, cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     deadline = time.time() + cfg["startup_timeout_s"]
     while time.time() < deadline:
         if proc.poll() is not None:

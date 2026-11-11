@@ -265,6 +265,26 @@ def test_api_client_against_demo_app():
         services.stop(server)
 
 
+def test_web_server_command_preserves_windows_python_path(monkeypatch):
+    from pyassure import services
+
+    python = r"C:\Program Files\Python\python.exe"
+    process = type("Process", (), {"poll": lambda self: None})()
+    calls = []
+    availability = iter([False, True])
+    monkeypatch.setattr(services, "section", lambda name: {
+        "command": "{python} app/demo_app/server.py",
+        "url": "http://127.0.0.1:8765/api/health",
+        "startup_timeout_s": 1,
+    })
+    monkeypatch.setattr(services.sys, "executable", python)
+    monkeypatch.setattr(services, "is_up", lambda url: next(availability))
+    monkeypatch.setattr(services.subprocess, "Popen", lambda command, **kwargs: calls.append(command) or process)
+
+    assert services.ensure() is process
+    assert calls == [[python, "app/demo_app/server.py"]]
+
+
 def test_runner_shard_split_is_a_partition():
     units = sorted(discover(["app/features"], "scenario", []), key=lambda u: u.id)
     parts = [units[i::3] for i in range(3)]                   # what `--shard i/3` does
