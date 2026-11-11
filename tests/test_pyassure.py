@@ -202,6 +202,24 @@ def test_settings_merge_defaults_and_allure_switch(monkeypatch, tmp_path):
         config.settings.cache_clear()
 
 
+def test_project_root_can_be_overridden(monkeypatch, tmp_path):
+    from pyassure import config
+
+    root = tmp_path / "mapped-project"
+    monkeypatch.setenv("PYASSURE_ROOT", str(root))
+    assert config._project_root() == root
+
+
+def test_app_dir_can_be_overridden(monkeypatch, tmp_path):
+    from pyassure import config
+
+    app_dir = tmp_path / "custom-app"
+    monkeypatch.setenv("PYASSURE_APP_DIR", str(app_dir))
+    assert config._app_dir() == app_dir
+    monkeypatch.setenv("PYASSURE_APP_DIR", "alternate-app")
+    assert config._app_dir() == config.BASE_DIR / "alternate-app"
+
+
 def test_allure_switch_and_cli_override(monkeypatch):
     from types import SimpleNamespace
     from pyassure.reporting import allure_support as a

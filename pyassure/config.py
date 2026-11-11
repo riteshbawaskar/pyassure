@@ -22,8 +22,23 @@ from typing import Any, Dict
 
 import yaml
 
-BASE_DIR = Path(__file__).resolve().parent.parent          # project root
-APP_DIR = BASE_DIR / "app"                                  # application-specific code lives here
+def _project_root() -> Path:
+    """Project root, optionally pinned to a mapped-drive path by the caller."""
+    override = os.environ.get("PYASSURE_ROOT")
+    return Path(override).expanduser().absolute() if override else Path(__file__).resolve().parent.parent
+
+
+def _app_dir() -> Path:
+    """Application folder, optionally selected independently of the project root."""
+    override = os.environ.get("PYASSURE_APP_DIR")
+    if not override:
+        return BASE_DIR / "app"
+    path = Path(override).expanduser()
+    return (path if path.is_absolute() else BASE_DIR / path).absolute()
+
+
+BASE_DIR = _project_root()
+APP_DIR = _app_dir()                                         # application-specific code lives here
 
 # Defaults for every switch. app/config/pyassure.yml only needs to list what it changes.
 DEFAULTS: Dict[str, Any] = {

@@ -1,7 +1,10 @@
 # 3. Configuration reference
 
 All YAML shares two conventions: **relative paths resolve from the project root**, and **`${VAR}` / `${VAR:default}`** come
-from environment variables. Unknown *option* names raise an error, so typos are caught.
+from environment variables. Set `PYASSURE_ROOT` to an absolute path to override the root derived from `__file__`
+(useful when the project is accessed through a mapped network drive). Set `PYASSURE_APP_DIR` to select a different
+application folder; absolute paths are used as-is, while relative paths resolve from `PYASSURE_ROOT` (or the default project
+root). The selected folder must contain `config/pyassure.yml` and `config/connections.yml`. Unknown *option* names raise an error, so typos are caught.
 
 ## 3.1 `app/config/pyassure.yml` - behaviour switches
 
