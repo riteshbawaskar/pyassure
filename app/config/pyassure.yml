@@ -1,0 +1,36 @@
+# ============================================================================================
+# PyAssure settings for THIS application. Only list what differs from the defaults
+# (full list of keys + defaults: pyassure/config.py -> DEFAULTS, docs/03-configuration-reference.md).
+# ============================================================================================
+
+ui:                                   # Playwright browser tests
+  base_url: http://127.0.0.1:8765     # page objects use relative paths like "/customers.html"
+  headless: true                      # false = watch the browser   (per run: -D headless=false)
+  # browser: chromium                 # chromium | firefox | webkit (per run: -D browser=firefox)
+  # trace_on_failure: true            # keep Playwright trace.zip of failed scenarios
+  # record_video: true                # keep a .webm of failed scenarios
+
+api:                                  # Playwright API testing
+  base_url: http://127.0.0.1:8765
+  # headers: {X-Env: qa}              # sent with every API call
+
+sessions:                             # Playwright storageState (log in once, reuse everywhere)
+  providers: app.auth                 # module containing the @session_provider login functions
+  ttl_minutes: 60                     # re-login when a saved state is older than this
+  warmup: [admin]                     # parallel runner logs these in ONCE before starting workers
+
+reports:
+  standalone_html: true               # PyAssure compact HTML + JSON (the standard behave report: behave.ini)
+  allure:
+    enabled: false                    # <- Allure ON/OFF.  One-off:  behave -D allure=true  |  run_tests.py --allure
+    # results_dir: reports/allure-results
+    # report_dir: reports/allure-report
+    # generate: true                  # runner builds the HTML if the Allure CLI is found (PATH / ALLURE_BIN / cli:)
+
+parallel:                             # defaults for run_tests.py
+  workers: auto
+  scheme: feature                     # feature | scenario
+
+web_server:                           # start the app under test if it is not already running (replace/remove for your app)
+  command: "{python} app/demo_app/server.py"
+  url: http://127.0.0.1:8765/api/health

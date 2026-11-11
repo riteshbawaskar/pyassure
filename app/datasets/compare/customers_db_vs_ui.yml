@@ -1,0 +1,14 @@
+name: Customers - database vs the grid shown in the UI
+source: {connection: demo_db, query: "SELECT CUSTOMER_ID, NAME, EMAIL, COUNTRY, CREDIT_LIMIT, STATUS FROM customers WHERE NAME LIKE 'Customer%'"}
+target:
+  type: web_table                       # Playwright reads the on-screen <table>
+  url: /customers.html                  # relative to ui.base_url
+  selector: "#customers"
+  session: admin                        # open the page already logged in (storageState)
+  actions:                              # pre-steps run on the page before the table is read
+    - {wait_for: "#customers tbody tr"} # the grid is filled by an API call after load
+    - {fill: "#name-filter", value: "Customer"}   # same filter as the database query -> unaffected by other tests' data
+    - {click: "#search"}
+primary_key: [CUSTOMER_ID]
+compare_fields: all
+options: {numeric_tolerance: 0.001}     # UI shows 2 decimals

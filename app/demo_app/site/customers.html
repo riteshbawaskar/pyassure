@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Customer Directory</title></head>
+<body>
+<h1 id="heading">Customer Directory</h1>
+<label>Filter by name <input id="name-filter" type="text"></label>
+<button id="search" type="button">Search</button>
+<p id="result-count">Loading...</p>
+<table id="customers"><thead><tr><th>CUSTOMER_ID</th><th>NAME</th><th>EMAIL</th><th>COUNTRY</th><th>CREDIT_LIMIT</th><th>STATUS</th></tr></thead>
+<tbody></tbody></table>
+<script>
+let all = [];
+function render(rows) {                       // draw the grid and the summary line
+  document.querySelector('#customers tbody').innerHTML = rows.map(c =>
+    `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.email}</td><td>${c.country}</td>` +
+    `<td>${c.credit_limit.toFixed(2)}</td><td>${c.status}</td></tr>`).join('');
+  document.getElementById('result-count').textContent = `Showing ${rows.length} of ${all.length} customers`;
+}
+fetch('/api/customers').then(async r => {     // requires the session cookie, else back to the login page
+  if (r.status === 401) { location.href = '/login.html'; return; }
+  all = (await r.json()).customers; render(all);
+});
+document.getElementById('search').addEventListener('click', () => {
+  const q = document.getElementById('name-filter').value.toLowerCase();
+  render(all.filter(c => c.name.toLowerCase().includes(q)));
+});
+</script></body></html>

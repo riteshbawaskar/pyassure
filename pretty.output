@@ -1,0 +1,11 @@
+@db @compare
+Feature: Cross-source data comparison # app/features/data_compare.feature:2
+  As a data engineer
+  I want to compare recordsets between databases, Excel files, APIs and the UI
+  So that migrations and pipelines move data without loss or corruption
+  @demo
+  Scenario Outline: Compare configs can be batched with one overall assertion -- @1.1   # app/features/data_compare.feature:25
+    Given the compare config "app/datasets/compare/customers_db_vs_excel.yml"           # pyassure/steps/data_steps.py:41
+    When I run the data comparison                                                      # pyassure/steps/data_steps.py:48
+    Then the data comparison should pass                                                # pyassure/steps/data_steps.py:140
+

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyassure"
+version = "2.0.0"
+description = "PyAssure - a Quality Assurance framework in Python for UI, API and Database Testing"
+requires-python = ">=3.9"
+dependencies = ["behave>=1.2.6", "behave-html-formatter>=0.9.10", "pandas>=2.0", "openpyxl>=3.1",
+                "PyYAML>=6.0", "cryptography>=41"]
+
+[project.optional-dependencies]
+ui = ["playwright>=1.40"]                 # UI + API testing (then: playwright install chromium)
+allure = ["allure-behave>=2.13"]
+snowflake = ["snowflake-connector-python>=3.0"]
+oracle = ["oracledb>=2.0"]
+databricks = ["databricks-sql-connector>=3.0"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+pyassure-run = "pyassure.runner:main"
+pyassure-secrets = "pyassure.secrets:main"
+
+[tool.setuptools.packages.find]
+include = ["pyassure*"]        # the app/ folder is YOUR code, not part of the installed framework
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,14 @@
+name: Customers - database vs the API response
+# Both sides are filtered to the seeded customers ("Customer ..."), so scenarios that create other customers
+# (even in parallel workers) can never disturb this comparison.
+source: {connection: demo_db, query: "SELECT CUSTOMER_ID, NAME, EMAIL, COUNTRY, CREDIT_LIMIT, STATUS FROM customers WHERE NAME LIKE 'Customer%'"}
+target:
+  type: api                             # Playwright APIRequestContext -> JSON list -> recordset
+  path: /api/customers
+  json_path: customers                  # where the list is inside the response body
+  params: {name: Customer}              # query string sent with the request
+  session: admin
+primary_key: [CUSTOMER_ID]
+column_mapping: {id: CUSTOMER_ID}       # target_column: source_column (other columns already match case-insensitively)
+compare_fields: all
+options: {numeric_tolerance: 0.001}

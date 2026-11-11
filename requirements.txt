@@ -1,0 +1,17 @@
+# core
+behave>=1.2.6
+behave-html-formatter>=0.9.10
+pandas>=2.0
+openpyxl>=3.1
+PyYAML>=6.0
+cryptography>=41
+# UI + API testing (afterwards: playwright install chromium)
+playwright>=1.40
+# optional Allure reporting (CLI + Java needed to render: https://allurereport.org)
+allure-behave>=2.13
+# install only the databases you use
+snowflake-connector-python>=3.0
+oracledb>=2.0
+databricks-sql-connector>=3.0
+# development
+pytest>=7.0

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sign in</title></head>
+<body>
+<h1 id="login-heading">Sign in</h1>
+<label>Username <input id="username" type="text"></label><br>
+<label>Password <input id="password" type="password"></label><br>
+<button id="login-btn" type="button">Sign in</button>
+<p id="login-error" style="color:#b00" hidden></p>
+<script>
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const r = await fetch('/api/login', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: document.getElementById('username').value,
+                          password: document.getElementById('password').value})});
+  if (r.ok) { location.href = '/customers.html'; return; }
+  const e = document.getElementById('login-error');
+  e.textContent = 'Invalid credentials'; e.hidden = false;
+});
+</script></body></html>
