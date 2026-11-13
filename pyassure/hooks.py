@@ -57,6 +57,8 @@ def before_scenario(context, scenario):
     context.store.start_scenario(scenario.feature.name, scenario.name, [str(t) for t in scenario.tags])
     if context.worker:
         context.store.info("Worker", context.worker)
+    context.continue_on_failure = "continue_on_failure" in {str(tag) for tag in scenario.tags}
+    context.deferred_checkpoint_failures = []
 
 
 def after_step(context, step):
@@ -74,6 +76,9 @@ def after_step(context, step):
 
 def after_scenario(context, scenario):
     """Close browser context + API clients; keep trace/video of failed scenarios."""
+    if context.deferred_checkpoint_failures:
+        scenario.set_status("failed")
+        context.store.error("Deferred checkpoint failures: " + ", ".join(context.deferred_checkpoint_failures))
     failed = scenario.status.name in ("failed", "error")
     kept = runtime.end_scenario(context, failed, scenario.name)
     api.close_all(context)

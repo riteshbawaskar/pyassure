@@ -158,7 +158,8 @@ def step_overall(context):
     ok.append(checkpoint(context, "No field mismatches", r.mismatched_rows == 0, "0 rows with differences",
                          f"{r.mismatched_rows} of {r.common_rows} rows",
                          tables=_tbl(context, "Field mismatches", r.mismatches), raise_on_fail=False))
-    assert all(ok), "One or more comparison checkpoints failed - see report"
+    if not all(ok) and not getattr(context, "continue_on_failure", False):
+        raise AssertionError("One or more comparison checkpoints failed - see report")
 
 # ====================================================================================================
 # DATA VALIDATION (sanity checks on one dataset)
@@ -179,7 +180,8 @@ def _record(context, outcomes):
                   if o.sample is not None else [])
         flags.append(checkpoint(context, o.label, o.passed, o.expected, o.actual, o.message, tables,
                                 severity=o.severity, raise_on_fail=False))
-    assert all(flags), f"{flags.count(False)} validation(s) failed - see report"
+    if not all(flags) and not getattr(context, "continue_on_failure", False):
+        raise AssertionError(f"{flags.count(False)} validation(s) failed - see report")
 
 
 @given('the validation config "{path}"')

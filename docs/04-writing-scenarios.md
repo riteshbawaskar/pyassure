@@ -8,11 +8,14 @@ Scenarios live in `app/features/`. Framework steps are enabled in `app/features/
 | `@requires_creds` | needs Snowflake/Oracle/Databricks access | skipped |
 | `@requires_browser` | needs Playwright browsers (UI) | skipped |
 | `@demo_fail` | fails on purpose | skipped |
+| `@continue_on_failure` | defer failed `checkpoint()` assertions until the scenario ends; later steps still run, and the scenario remains failed | opt-in |
 | `@ui @api @db @excel @snowflake ...` | free-form filters | run |
 
 `behave --tags=ui` **replaces** the default exclusions. Repeated `--tags` are AND-ed; commas inside one are OR-ed.
-behave stops at a scenario's **first failing step**; finish with a composite step (`the data comparison should pass`,
-`all validations should pass`) when you want every problem recorded in one run.
+By default, Behave stops a scenario at its **first failing step**; finish with a composite step (`the data comparison should pass`,
+`all validations should pass`) when you want every problem recorded in one run. To continue after failed framework
+assertions recorded by `checkpoint()`, tag the scenario `@continue_on_failure`. Failed checks remain visible in the report
+and the scenario is marked failed at the end. This does not defer errors in setup/action steps or arbitrary Python `assert` statements.
 
 ## Database / file steps (`pyassure.steps.data_steps`)
 | Step | |

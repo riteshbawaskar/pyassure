@@ -74,6 +74,44 @@ def test_factory_decrypts_only_when_building_connector(key, tmp_path):
     assert factory.build_connector(ep).config["password"] == "pw1"   # decrypted in memory
 
 
+def test_continue_on_failure_runs_later_steps_and_fails_scenario(monkeypatch):
+    from types import SimpleNamespace
+    from pyassure import hooks
+    from pyassure.bdd import checkpoint
+
+    class Scenario:
+        feature = SimpleNamespace(name="Feature")
+        name = "deferred assertions"
+        tags = ["continue_on_failure"]
+
+        def __init__(self):
+            self.status = SimpleNamespace(name="passed")
+
+        def set_status(self, status):
+            self.status = SimpleNamespace(name=status)
+
+    scenario = Scenario()
+    context = SimpleNamespace(store=ResultStore("test"), worker="")
+    ran = []
+    monkeypatch.setattr(hooks.runtime, "end_scenario", lambda *args: [])
+    monkeypatch.setattr(hooks.api, "close_all", lambda context: None)
+
+    hooks.before_scenario(context, scenario)
+    assert not checkpoint(context, "first check", False)
+    ran.append("next step")
+    assert checkpoint(context, "second check", True)
+    assert not checkpoint(context, "composite check", False, raise_on_fail=False)
+    hooks.after_scenario(context, scenario)
+
+    assert ran == ["next step"]
+    assert scenario.status.name == "failed"
+    assert context.store.scenarios[0].status == "failed"
+    assert context.store.scenarios[0].count("FAILED") == 2
+
+    with pytest.raises(AssertionError):
+        checkpoint(SimpleNamespace(store=ResultStore()), "immediate check", False)
+
+
 @pytest.mark.parametrize("use_arrow", [False, True])
 def test_snowflake_executes_all_statements_and_returns_last_result(use_arrow):
     class Cursor:

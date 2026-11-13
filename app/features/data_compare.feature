@@ -32,7 +32,7 @@ Feature: Cross-source data comparison
     And the field "STATUS" should have no mismatches
     And the mismatch percentage should be at most 15
 
-  @demo_fail
+  @demo_fail @continue_on_failure
   Scenario: Customers with known differences are detected
     Given the compare config "app/datasets/compare/customers_db_vs_excel_diffs.yml"
     When I run the data comparison

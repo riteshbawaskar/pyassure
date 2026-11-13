@@ -19,6 +19,7 @@ def checkpoint(context, name: str, passed: bool, expected: Any = "", actual: Any
     severity="warning"    a failure is recorded as WARNING and never fails the scenario.
     raise_on_fail=False   record only - composite steps record ALL checkpoints, then fail once
                           (behave itself stops at the first failing step).
+    @continue_on_failure   checkpoint failures are deferred until after the scenario's steps.
     Returns True when the checkpoint passed (or was only a warning).
     """
     status = PASSED if passed else (WARNING if severity == "warning" else FAILED)
@@ -30,6 +31,9 @@ def checkpoint(context, name: str, passed: bool, expected: Any = "", actual: Any
         lines += ["", f"{t.title} ({t.total_rows} rows)", "\t".join(t.columns)] + ["\t".join(r) for r in t.rows[:50]]
     allure_support.attach(f"[{status}] {name}", "\n".join(lines))
 
-    if status == FAILED and raise_on_fail:
-        raise AssertionError(f"{name}: expected {expected}; actual {actual}. {message}".strip())
+    if status == FAILED:
+        if getattr(context, "continue_on_failure", False):
+            context.deferred_checkpoint_failures.append(name)
+        elif raise_on_fail:
+            raise AssertionError(f"{name}: expected {expected}; actual {actual}. {message}".strip())
     return status != FAILED
