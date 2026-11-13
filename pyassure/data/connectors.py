@@ -88,12 +88,21 @@ class SnowflakeConnector(_DbApiConnector):
         self._conn = snowflake.connector.connect(**params)
 
     def fetch_df(self, query):
-        if not self.config.get("use_arrow"):                # use_arrow: faster for big results (pyarrow)
-            return super().fetch_df(query)
         cur = self._conn.cursor()
         try:
-            cur.execute(query)
-            return cur.fetch_pandas_all()
+            cur.execute(query, num_statements=0)
+            result = None
+            while True:
+                if cur.description is not None:
+                    if self.config.get("use_arrow"):        # use_arrow: faster for big results (pyarrow)
+                        result = cur.fetch_pandas_all()
+                    else:
+                        result = _cursor_df(cur)
+                if not cur.nextset():
+                    break
+            if result is None:
+                raise ConfigError("Snowflake query did not return a result set")
+            return result
         finally:
             cur.close()
 

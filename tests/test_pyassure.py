@@ -74,6 +74,47 @@ def test_factory_decrypts_only_when_building_connector(key, tmp_path):
     assert factory.build_connector(ep).config["password"] == "pw1"   # decrypted in memory
 
 
+@pytest.mark.parametrize("use_arrow", [False, True])
+def test_snowflake_executes_all_statements_and_returns_last_result(use_arrow):
+    class Cursor:
+        def __init__(self):
+            self.results = [
+                ([("status",)], [("Statement executed successfully.",)]),
+                ([("ID",)], [(42,)]),
+            ]
+            self.index = 0
+
+        @property
+        def description(self):
+            return self.results[self.index][0]
+
+        def execute(self, query, num_statements=None):
+            self.query = query
+            self.num_statements = num_statements
+
+        def fetchall(self):
+            return self.results[self.index][1]
+
+        def fetch_pandas_all(self):
+            return pd.DataFrame({"ID": [42]})
+
+        def nextset(self):
+            self.index += 1
+            return self.index < len(self.results)
+
+        def close(self):
+            pass
+
+    cursor = Cursor()
+    connector = factory.SnowflakeConnector({"use_arrow": use_arrow})
+    connector._conn = type("Connection", (), {"cursor": lambda self: cursor})()
+
+    result = connector.fetch_df("SET cutoff = 1; WITH rows AS (SELECT $cutoff AS ID) SELECT ID FROM rows")
+
+    assert cursor.num_statements == 0
+    assert result.to_dict("records") == [{"ID": 42}]
+
+
 # --------------------------------------------------------------------- comparison
 def _cmp(src, tgt, **cfg):
     base = {"primary_key": ["ID"], "compare_fields": "all"}

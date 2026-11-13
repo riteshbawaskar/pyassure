@@ -69,6 +69,7 @@ query: SELECT ...              # or  query_file: sql/x.sql   or   table: SCHEMA.
 schema: QA                     # any other key overrides the named connection's setting
 ```
 Precedence: **named connection < inline keys**. A trailing `;` is removed (Oracle).
+Snowflake `query` and `query_file` values may contain semicolon-separated statements (for example, `SET` followed by a `WITH` query); all statements run, and the final result set is returned.
 
 | inline `type` | keys |
 |---|---|
