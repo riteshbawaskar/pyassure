@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from html import escape as e
 from pathlib import Path
-from typing import List
 
 from pyassure.branding import NAME, TAGLINE, VERSION
 from pyassure.reporting.store import (FAILED, Checkpoint, ResultStore,
@@ -26,10 +25,12 @@ h1{font-size:19px;margin:0 0 2px}.brand b{color:var(--ok)}.sub{font-size:12px}.m
 .card b{display:block;font-size:18px}.card.ok b{color:var(--ok)}.card.bad b{color:var(--bad)}.card.warn b{color:var(--warn)}
 .bar{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap}.bar button{border:1px solid var(--bd);background:var(--card);color:var(--fg);
 border-radius:6px;padding:3px 10px;cursor:pointer;font:inherit}.bar button.on{outline:2px solid var(--mut)}
-body[data-f=failed] .sc.passed,body[data-f=failed] .sc.skipped{display:none}
+.bar select{border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:6px;padding:3px 10px;font:inherit}
+[hidden]{display:none!important}
 details.sc{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--bd);border-radius:6px;margin:6px 0}
 details.sc.passed{border-left-color:var(--ok)}details.sc.failed,details.sc.error{border-left-color:var(--bad)}
 details.sc>summary{padding:7px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.report-icon{display:inline-block;font-size:14px;line-height:1}.feature-icon{color:var(--ok)}.scenario-icon{color:var(--mut)}
 .sc .body{padding:2px 12px 10px}.b{display:inline-block;border-radius:4px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px;
 background:var(--skbg);color:var(--mut);text-transform:uppercase}
 .b.PASSED,.b.passed{background:var(--okbg);color:var(--ok)}.b.FAILED,.b.failed,.b.error{background:var(--badbg);color:var(--bad)}
@@ -45,7 +46,24 @@ th{position:sticky;top:0;background:var(--card)}.cap{font-weight:600;margin-top:
 
 _JS = """
 const F=document.querySelectorAll('.bar [data-f]');
-F.forEach(b=>b.onclick=()=>{document.body.dataset.f=b.dataset.f;F.forEach(x=>x.classList.toggle('on',x===b))});
+const tagFilter=document.querySelector('#tag-filter');
+const scenarios=document.querySelectorAll('details.sc');
+function applyFilters(){
+  const failed=document.body.dataset.f==='failed', tag=tagFilter.value;
+  scenarios.forEach(d=>{
+    const tags=d.dataset.tags.split(' ').filter(Boolean);
+    d.hidden=(failed&&(d.classList.contains('passed')||d.classList.contains('skipped')))||
+      (tag&&!tags.includes(tag));
+  });
+  document.querySelectorAll('.feature-group').forEach(g=>
+    g.hidden=!Array.from(g.querySelectorAll('details.sc')).some(d=>!d.hidden));
+}
+F.forEach(b=>b.onclick=()=>{
+  document.body.dataset.f=b.dataset.f;
+  F.forEach(x=>x.classList.toggle('on',x===b));
+  applyFilters();
+});
+tagFilter.onchange=applyFilters;
 document.querySelectorAll('.bar [data-o]').forEach(b=>b.onclick=()=>
   document.querySelectorAll('details.sc').forEach(d=>d.open=b.dataset.o==='1'));
 """
@@ -73,6 +91,7 @@ def _checkpoint(c: Checkpoint) -> str:
 def _scenario(s: ScenarioRecord) -> str:
     n, bad = len(s.checkpoints), s.count(FAILED)
     tags = " ".join(f"@{e(t)}" for t in s.tags)
+    tag_values = e(" ".join(s.tags))
     kv = "".join(f'<span class="kv"><b>{e(k)}</b> {e(v)}</span>' for k, v in s.info.items())
     errors = "".join(f"<pre>{e(x)}</pre>" for x in s.errors)
     # API calls made through ApiClient: a compact evidence table (bodies in the tooltip).
@@ -88,8 +107,9 @@ def _scenario(s: ScenarioRecord) -> str:
                     f'<img alt="{e(i.title)}" style="max-width:100%;margin:6px 0" '
                     f'src="data:image/png;base64,{i.png_b64}"></details>' for i in s.images)
     open_attr = " open" if s.status in ("failed", "error") else ""
-    return (f'<details class="sc {s.status}"{open_attr}><summary><span class="b {s.status}">{s.status}</span>'
-            f'<b>{e(s.name)}</b><span class="mut">{e(s.feature)}</span><span class="tag">{tags}</span>'
+    return (f'<details class="sc {s.status}" data-tags="{tag_values}"{open_attr}><summary>'
+            f'<span class="b {s.status}">{s.status}</span><span class="report-icon scenario-icon" aria-hidden="true">▸</span>'
+            f'<b>{e(s.name)}</b><span class="tag">{tags}</span>'
             f'<span class="mut" style="margin-left:auto">{n - bad}/{n} checkpoints &middot; {s.duration:.2f}s</span></summary>'
             f'<div class="body">{kv}{errors}{"".join(_checkpoint(c) for c in s.checkpoints)}{api}{shots}</div></details>')
 
@@ -110,8 +130,12 @@ def render_html(store: ResultStore) -> str:
     by_feature: dict = {}
     for s in store.scenarios:
         by_feature.setdefault(s.feature, []).append(s)
-    body = "".join(f'<h3 style="margin:14px 0 2px">{e(f)}</h3>' + "".join(_scenario(s) for s in sc)
+    body = "".join(f'<section class="feature-group"><h3 style="margin:14px 0 2px">'
+                   f'<span class="report-icon feature-icon" aria-hidden="true">◆</span> {e(f)}</h3>'
+                   + "".join(_scenario(s) for s in sc) + '</section>'
                    for f, sc in by_feature.items())
+    tags = sorted({tag for s in store.scenarios for tag in s.tags})
+    tag_options = "".join(f'<option value="{e(tag)}">@{e(tag)}</option>' for tag in tags)
     env = f" &middot; {e(store.environment)}" if store.environment else ""
     run = "".join(f" &middot; {e(k)}: {e(v)}" for k, v in store.run_info.items())
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
@@ -125,6 +149,7 @@ def render_html(store: ResultStore) -> str:
             f'{store.started:%Y-%m-%d %H:%M:%S}{env}{run}</span></div></div>'
             f'<div class="cards">{cards}</div></div>'
             f'<div class="bar"><button data-f="all" class="on">All</button><button data-f="failed">Failures only</button>'
+            f'<label for="tag-filter">Tag:</label><select id="tag-filter"><option value="">All tags</option>{tag_options}</select>'
             f'<button data-o="1">Expand all</button><button data-o="0">Collapse all</button></div>'
             f'{body}<script>{_JS}</script></body></html>')
 

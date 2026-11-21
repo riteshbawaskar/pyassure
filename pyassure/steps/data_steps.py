@@ -20,12 +20,37 @@ import time
 from behave import given, then, when
 
 from pyassure.bdd import checkpoint
-from pyassure.config import load_yaml
+from pyassure.config import ConfigError, load_yaml, substitute_params
 from pyassure.data.compare import DatasetComparator
 from pyassure.data.connectors import fetch_dataset
 from pyassure.data.excel_cells import ExcelCellComparator
 from pyassure.data.validate import DataValidator
 from pyassure.reporting.store import Table
+
+
+def _load_feature_config(context, path):
+    """Load a config, applying an optional two-column name/value step table."""
+    cfg = load_yaml(path)
+    table = getattr(context, "table", None)
+    if table is None:
+        return cfg
+
+    headings = [str(heading).strip().lower() for heading in table.headings]
+    if sorted(headings) != ["name", "value"]:
+        raise ConfigError('Config parameter table must have "name" and "value" columns')
+
+    params = {}
+    for row in table.rows:
+        cells = dict(zip(headings, row.cells))
+        name = cells["name"].strip()
+        if not name:
+            raise ConfigError("Config parameter names cannot be empty")
+        if name in params:
+            raise ConfigError(f"Config parameter '{name}' is defined more than once")
+        params[name] = cells["value"]
+    for name, value in params.items():
+        context.store.info(f"Parameter: {name}", value)
+    return substitute_params(cfg, params)
 
 
 # ====================================================================================================
@@ -40,7 +65,7 @@ def _tbl(context, title, df):
 # ------------------------------------------------------------------------- Given / When
 @given('the compare config "{path}"')
 def step_load_compare_config(context, path):
-    context.compare_cfg = load_yaml(path)
+    context.compare_cfg = _load_feature_config(context, path)
     context.store.info("Comparison", context.compare_cfg.get("name", path))
     context.store.info("Config", path)
 
@@ -186,7 +211,7 @@ def _record(context, outcomes):
 
 @given('the validation config "{path}"')
 def step_load_validation_config(context, path):
-    context.validation_cfg = load_yaml(path)
+    context.validation_cfg = _load_feature_config(context, path)
     context.store.info("Validation", context.validation_cfg.get("name", path))
     context.store.info("Config", path)
 
@@ -244,7 +269,7 @@ def _diff_table(context, title, diffs):
 
 @given('the excel compare config "{path}"')
 def step_load(context, path):
-    context.cell_cfg = load_yaml(path)
+    context.cell_cfg = _load_feature_config(context, path)
     context.store.info("Comparison", context.cell_cfg.get("name", path))
     context.store.info("Source", context.cell_cfg["source"]["path"])
     context.store.info("Target", context.cell_cfg["target"]["path"])

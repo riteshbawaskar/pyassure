@@ -1,0 +1,17 @@
+name: Customers from ID {{min_customer_id}}
+source:
+  connection: demo_db
+  query: |
+    SELECT CUSTOMER_ID, NAME, EMAIL, COUNTRY, CREDIT_LIMIT, STATUS
+    FROM customers
+    WHERE CUSTOMER_ID >= {{min_customer_id}}
+target:
+  type: excel
+  path: app/data/customers_expected.xlsx
+  query: |
+    SELECT * FROM "Customers"
+    WHERE CUSTOMER_ID >= {{min_customer_id}}
+primary_key: [CUSTOMER_ID]
+compare_fields: all
+options:
+  numeric_tolerance: 0.001

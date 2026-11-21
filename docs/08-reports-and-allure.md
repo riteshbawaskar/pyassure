@@ -9,9 +9,13 @@ Every run can produce up to **four** outputs; all carry the PyAssure name and ve
 | **JUnit XML** | `reports/junit/*.xml` | `behave.ini` (`junit`) |
 | **Allure** | `reports/allure-results/` -> `reports/allure-report/` | `reports.allure.enabled` |
 
+When `run_tests.py` updates the latest merged report files, any previous `validation_report.html`,
+`validation_results.json`, and `bdd_index.html` are moved to `reports/log/` with the run timestamp
+appended to each filename. Timestamped run folders under `reports/runs/` are also retained.
+
 ## 8.1 PyAssure standalone report
 One self-contained file (CSS, JS, screenshots inlined; works offline; dark-mode aware). Header: name/version, title, time, environment (+ workers/scheme/wall time/shard
-for parallel runs). Summary cards, filters (*All / Failures only / Expand / Collapse*). Per scenario: status, tags, duration, worker, fact chips. Per checkpoint:
+for parallel runs). Feature and scenario headings use character-based icons. Summary cards, filters (*All / Failures only / Tag / Expand / Collapse*); the tag filter combines with the status filter. Per scenario: status, tags, duration, worker, fact chips. Per checkpoint:
 `PASSED | FAILED | WARNING`, expected vs actual, message and **evidence tables** (missing keys, mismatching values, invalid rows, differing cells). Plus an **API calls** table and
 **screenshots**. Failed scenarios open automatically; tables are capped by `max_report_rows`.
 

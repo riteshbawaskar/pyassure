@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 
 from pyassure.data.compare import DatasetComparator
 from pyassure.data.excel_cells import ExcelCellComparator
-from pyassure.config import ConfigError
+from pyassure.config import ConfigError, substitute_params
 from pyassure.data import connectors as factory
 from pyassure.reporting.store import PASSED, ResultStore
 from pyassure.runner import discover
@@ -265,6 +265,22 @@ def test_result_store_json_roundtrip_and_merge(tmp_path):
     assert json.loads((paths[0]).read_text())["framework"] == "PyAssure"
 
 
+def test_standalone_report_has_feature_scenario_icons_and_tag_filter():
+    from pyassure.reporting.html import render_html
+
+    store = ResultStore("t")
+    store.start_scenario("Feature A", "Scenario A", ["smoke", "api"])
+    store.end_scenario("passed")
+    html = render_html(store)
+
+    assert "◆</span> Feature A" in html
+    assert "▸</span>" in html
+    assert '<select id="tag-filter"><option value="">All tags</option>' in html
+    assert '<option value="api">@api</option>' in html and '<option value="smoke">@smoke</option>' in html
+    assert 'data-tags="smoke api"' in html
+    assert "function applyFilters()" in html and "tags.includes(tag)" in html
+
+
 # ============================================================== new in PyAssure 2.0
 def test_settings_merge_defaults_and_allure_switch(monkeypatch, tmp_path):
     """pyassure.yml only lists overrides; everything else comes from DEFAULTS (deep merge)."""
@@ -279,6 +295,44 @@ def test_settings_merge_defaults_and_allure_switch(monkeypatch, tmp_path):
         assert s["reports"]["allure"]["enabled"] is True and s["reports"]["allure"]["generate"] is True
     finally:
         config.settings.cache_clear()
+
+
+def test_config_parameters_substitute_recursively_and_require_values():
+    config = {"query": "SELECT * FROM orders WHERE batch_id = '{{batch_id}}'",
+              "checks": [{"min": "{{min_date}}"}], "keep": 3}
+    assert substitute_params(config, {"batch_id": "B-42", "min_date": "2025-01-01"}) == {
+        "query": "SELECT * FROM orders WHERE batch_id = 'B-42'",
+        "checks": [{"min": "2025-01-01"}], "keep": 3}
+    with pytest.raises(ConfigError, match="missing"):
+        substitute_params({"query": "{{missing}}"}, {})
+
+
+def test_feature_config_table_applies_optional_name_value_params(tmp_path):
+    from types import SimpleNamespace
+    from pyassure.steps.data_steps import _load_feature_config
+
+    path = tmp_path / "config.yml"
+    path.write_text("query: SELECT * FROM orders WHERE batch_id = '{{batch_id}}'\n")
+    table = SimpleNamespace(headings=["name", "value"],
+                            rows=[SimpleNamespace(cells=["batch_id", "B-42"])])
+    store = ResultStore("parameter test")
+    store.start_scenario("Feature", "Scenario", [])
+    assert _load_feature_config(SimpleNamespace(table=table, store=store), str(path)) == {
+        "query": "SELECT * FROM orders WHERE batch_id = 'B-42'"}
+    assert store.current.info == {"Parameter: batch_id": "B-42"}
+    assert _load_feature_config(SimpleNamespace(), str(path)) == {
+        "query": "SELECT * FROM orders WHERE batch_id = '{{batch_id}}'"}
+
+
+def test_archive_latest_reports_moves_existing_files_with_timestamp(tmp_path):
+    from pyassure.runner import _archive_latest_reports
+
+    report = tmp_path / "validation_report.html"
+    report.write_text("old report")
+    _archive_latest_reports(tmp_path, ["validation_report.html", "bdd_index.html"], "20261121-132745")
+    assert not report.exists()
+    assert (tmp_path / "log" / "validation_report_20261121-132745.html").read_text() == "old report"
+    assert not (tmp_path / "log" / "bdd_index_20261121-132745.html").exists()
 
 
 def test_project_root_can_be_overridden(monkeypatch, tmp_path):

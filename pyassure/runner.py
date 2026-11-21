@@ -156,6 +156,22 @@ def bdd_index(results: List[Result], where: Path, info: Dict[str, str]) -> str:
             f'<table><tr><th>Status</th><th>Unit</th><th>Time</th><th>Attempts</th></tr>{rows}</table>')
 
 
+def _archive_latest_reports(report_root: Path, names: List[str], timestamp: str) -> None:
+    """Move existing latest-run report files under log/ before replacing them."""
+    existing = [report_root / name for name in names if (report_root / name).is_file()]
+    if not existing:
+        return
+    log_dir = report_root / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    for source in existing:
+        destination = log_dir / f"{source.stem}_{timestamp}{source.suffix}"
+        duplicate = 1
+        while destination.exists():
+            destination = log_dir / f"{source.stem}_{timestamp}-{duplicate}{source.suffix}"
+            duplicate += 1
+        shutil.move(str(source), str(destination))
+
+
 # ------------------------------------------------------------------------------------ CLI
 def parser() -> argparse.ArgumentParser:
     par = section("parallel")
@@ -262,6 +278,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     for r in results:
         for x in (Path(r.worker_dir) / "junit").glob("*.xml"):
             shutil.copy(x, run_dir / "junit" / f"{r.unit.id}__{x.name}")
+    latest_reports = ("validation_report.html", "validation_results.json", "bdd_index.html")
+    _archive_latest_reports(report_root, list(latest_reports), run_dir.name)
     for name in ("validation_report.html", "validation_results.json"):           # latest-run copies
         shutil.copy(run_dir / name, report_root / name)
     (report_root / "bdd_index.html").write_text(bdd_index(results, report_root, info), encoding="utf-8")

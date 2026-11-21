@@ -49,6 +49,22 @@ Prefer **page-object steps in `app_steps.py`** for real applications ([chapter 5
 `the response time should be under N ms`.
 
 ## Data-driven scenarios
+Config-loading steps accept an optional table with `name` and `value` columns. Use `{{name}}` placeholders
+in any string value in compare, validation, or Excel cell-compare YAML configs. This is separate from
+`${ENV}` environment-variable expansion. Supplied table values are also shown as scenario facts in the
+standalone HTML report. See the runnable [parameterized comparison feature](../app/features/data_compare_params.feature)
+and its [compare config](../app/datasets/compare/customers_from_id.yml).
+```gherkin
+Scenario: Compare data from a selected minimum ID
+  Given the compare config "app/datasets/compare/customers_from_id.yml"
+    | name            | value |
+    | min_customer_id | 1015  |
+  When I run the data comparison
+  Then the data comparison should pass
+```
+The config filters both endpoints with `WHERE CUSTOMER_ID >= {{min_customer_id}}`. The HTML report
+includes a `Parameter: min_customer_id` fact with the supplied value.
+
 ```gherkin
 Scenario Outline: Every migrated table matches
   Given the compare config "<config>"

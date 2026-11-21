@@ -94,6 +94,7 @@ def resolve_path(path: str | os.PathLike) -> Path:
 
 
 _ENV = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}")
+_PARAM = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 
 
 def expand_env(value: Any) -> Any:
@@ -117,6 +118,22 @@ def load_yaml(path: str | os.PathLike) -> Dict[str, Any]:
         raise ConfigError(f"Config file not found: {p}")
     with p.open(encoding="utf-8") as fh:
         return expand_env(yaml.safe_load(fh) or {})
+
+
+def substitute_params(value: Any, params: Dict[str, str]) -> Any:
+    """Replace {{name}} placeholders in configuration values using scenario parameters."""
+    if isinstance(value, str):
+        def sub(match: re.Match) -> str:
+            name = match.group(1)
+            if name not in params:
+                raise ConfigError(f"Config parameter '{name}' was not provided in the feature table")
+            return params[name]
+        return _PARAM.sub(sub, value)
+    if isinstance(value, dict):
+        return {key: substitute_params(item, params) for key, item in value.items()}
+    if isinstance(value, list):
+        return [substitute_params(item, params) for item in value]
+    return value
 
 
 def _merge(base: Dict, over: Dict) -> Dict:
