@@ -17,7 +17,15 @@ checks:
   - type: sql
     name: no_orphan_orders
     query: |
-      SELECT COUNT(*) FROM orders o
+      SELECT CASE WHEN COUNT(*) = 0 THEN 'OK' ELSE 'ORPHANS_FOUND' END
+      FROM orders o
       LEFT JOIN customers c ON c.CUSTOMER_ID = o.CUSTOMER_ID
       WHERE c.CUSTOMER_ID IS NULL
-    expect: 0
+    expect: OK
+  - type: sql_report
+    name: orders_by_status
+    query: |
+      SELECT STATUS, COUNT(*) AS ORDER_COUNT
+      FROM orders
+      GROUP BY STATUS
+      ORDER BY STATUS

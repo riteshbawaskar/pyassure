@@ -201,8 +201,11 @@ def _record(context, outcomes):
     """
     flags = []
     for o in outcomes:
-        tables = ([Table.from_df("Sample of invalid rows", o.sample, context.validator.max_sample_rows)]
-                  if o.sample is not None else [])
+        if o.sample is not None:
+            title = "SQL query results" if o.check_type == "sql_report" else "Sample of invalid rows"
+            tables = [Table.from_df(title, o.sample, context.validator.max_sample_rows)]
+        else:
+            tables = []
         flags.append(checkpoint(context, o.label, o.passed, o.expected, o.actual, o.message, tables,
                                 severity=o.severity, raise_on_fail=False))
     if not all(flags) and not getattr(context, "continue_on_failure", False):

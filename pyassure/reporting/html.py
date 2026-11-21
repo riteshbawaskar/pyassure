@@ -85,7 +85,8 @@ def _checkpoint(c: Checkpoint) -> str:
         return f'<div class="ck {c.status}">{head}</div>'
     msg = f'<div class="msg">{e(c.message)}</div>' if c.message else ""
     tables = "".join(_table(t) for t in c.tables)
-    return f'<details class="ck {c.status}"{" open" if c.status == FAILED else ""}><summary>{head}</summary>{msg}{tables}</details>'
+    open_attr = " open" if c.status == FAILED or any(t.title == "SQL query results" for t in c.tables) else ""
+    return f'<details class="ck {c.status}"{open_attr}><summary>{head}</summary>{msg}{tables}</details>'
 
 
 def _scenario(s: ScenarioRecord) -> str:

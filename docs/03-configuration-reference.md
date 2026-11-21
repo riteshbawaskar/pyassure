@@ -127,7 +127,8 @@ All checks accept `name`, `severity: error|warning` (warnings never fail the sce
 | `regex` | `column(s)`, `pattern`, `full_match` | no match |
 | `length` | `column(s)`, `min`, `max` | length outside |
 | `expression` | `expression` (pandas, e.g. `SHIP >= ORDER`) | any row violates |
-| `sql` | `query`, `expect` or `min`/`max`, `connection` | first cell wrong |
+| `sql` | `query`, `expect` or `min`/`max`, `connection` | first cell differs from `expect`; `min`/`max` require a numeric result. `expect` supports text or numeric values |
+| `sql_report` | `query`, `connection`, optional `name` | query fails to execute; otherwise the query and returned rows are attached to the HTML report (opened by default) |
 
 NULLs are ignored by all but `not_null`. A check that cannot run is **reported as a failed checkpoint** with the error.
 

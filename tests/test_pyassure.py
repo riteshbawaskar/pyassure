@@ -206,6 +206,54 @@ def test_validator_checks_and_severity():
     assert any("column(s) not found" in o.message for o in out.values())   # reported, not raised
 
 
+def test_sql_validation_compares_text_and_numeric_results():
+    query_results = {
+        "SELECT status": pd.DataFrame({"status": ["READY"]}),
+        "SELECT count": pd.DataFrame({"count": [3]}),
+        "SELECT invalid_status": pd.DataFrame({"status": ["BLOCKED"]}),
+    }
+    cfg = {"checks": [
+        {"type": "sql", "name": "text result", "query": "SELECT status", "expect": "READY"},
+        {"type": "sql", "name": "numeric result", "query": "SELECT count", "expect": 3},
+        {"type": "sql", "name": "numeric bounds", "query": "SELECT count", "min": 2, "max": 4},
+        {"type": "sql", "name": "text mismatch", "query": "SELECT invalid_status", "expect": "READY"},
+        {"type": "sql", "name": "numeric bounds on text", "query": "SELECT status", "min": 1},
+    ]}
+    outcomes = DataValidator(cfg, lambda spec: query_results[spec["query"]]).run(pd.DataFrame())
+    assert [o.passed for o in outcomes] == [True, True, True, False, False]
+    assert outcomes[0].actual == "READY" and outcomes[3].actual == "BLOCKED"
+    assert "must be numeric" in outcomes[4].message
+
+
+def test_sql_report_check_includes_query_and_rows_in_standalone_html():
+    from types import SimpleNamespace
+    from pyassure.reporting.html import render_html
+    from pyassure.steps.data_steps import _record
+
+    query = "SELECT STATUS, COUNT(*) AS ORDER_COUNT FROM orders GROUP BY STATUS"
+    result = pd.DataFrame({"STATUS": ["NEW", "SHIPPED"], "ORDER_COUNT": [4, 2]})
+    validator = DataValidator({"checks": [{"type": "sql_report", "name": "orders_by_status", "query": query}]},
+                              lambda spec: result)
+    outcomes = validator.run(pd.DataFrame())
+    store = ResultStore("SQL report")
+    store.start_scenario("Validation", "Query output is attached", [])
+    _record(SimpleNamespace(validator=validator, continue_on_failure=False,
+                            store=store), outcomes)
+
+    html = render_html(store)
+    assert outcomes[0].passed is True
+    assert f"Query: {query}" in html
+    assert "SQL query results" in html and "SHIPPED" in html and "ORDER_COUNT" in html
+    assert '<details class="ck PASSED" open>' in html
+
+
+def test_sql_report_accepts_empty_result_sets():
+    validator = DataValidator({"checks": [{"type": "sql_report", "query": "SELECT value WHERE 1=0"}]},
+                              lambda spec: pd.DataFrame(columns=["value"]))
+    outcome = validator.run(pd.DataFrame())[0]
+    assert outcome.passed is True and outcome.actual == "0 row(s), 1 column(s)"
+
+
 # ------------------------------------------------------------------ table parsing
 def test_table_parser_handles_whitespace_ragged_rows_and_nesting():
     html = ("<table><tr><th>A</th><th>B</th></tr><tr><td> 1\n </td><td>x&nbsp;<b>y</b></td></tr>"
@@ -319,7 +367,7 @@ def test_feature_config_table_applies_optional_name_value_params(tmp_path):
     store.start_scenario("Feature", "Scenario", [])
     assert _load_feature_config(SimpleNamespace(table=table, store=store), str(path)) == {
         "query": "SELECT * FROM orders WHERE batch_id = 'B-42'"}
-    assert store.current.info == {"Parameter: batch_id": "B-42"}
+    assert store.scenarios[0].info == {"Parameter: batch_id": "B-42"}
     assert _load_feature_config(SimpleNamespace(), str(path)) == {
         "query": "SELECT * FROM orders WHERE batch_id = '{{batch_id}}'"}
 

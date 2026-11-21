@@ -263,21 +263,51 @@ def _expression(v, df, spec):
 
 @register("sql")
 def _sql(v, df, spec):
-    """Run a custom query; its first cell (a number) is compared with expect / min / max."""
-    if v.sql_runner is None:
-        raise RuntimeError("no sql_runner configured")
-    value = v.sql_runner(spec).iloc[0, 0]
-    value = float(value) if value is not None else 0.0
+    """Run a query and compare its first cell with an expected value or numeric bounds."""
+    result = _sql_query(v, spec)
+    if result.empty:
+        raise ValueError("SQL query must return at least one row")
+    value = result.iloc[0, 0]
+    value = None if pd.isna(value) else value
     checks, parts = [], []
     if "min" in spec or "max" in spec:
+        if value is None:
+            raise ValueError("SQL result must be numeric when using min/max; got NULL")
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"SQL result must be numeric when using min/max; got {value!r}") from exc
         if "min" in spec:
-            checks.append(value >= spec["min"]); parts.append(f">= {spec['min']}")
+            minimum = float(spec["min"])
+            checks.append(numeric_value >= minimum); parts.append(f">= {spec['min']}")
         if "max" in spec:
-            checks.append(value <= spec["max"]); parts.append(f"<= {spec['max']}")
+            maximum = float(spec["max"])
+            checks.append(numeric_value <= maximum); parts.append(f"<= {spec['max']}")
     else:
         expect = spec.get("expect", 0)
         checks.append(value == expect); parts.append(f"= {expect}")
     ok = all(checks)
+    actual = "NULL" if value is None else str(value)
     return [ValidationOutcome("sql", spec.get("name", "custom query"), ok, spec.get("severity", "error"),
-                              "result " + " and ".join(parts), f"{value:g}", spec.get("message", ""),
-                              len(df), 0 if ok else int(value))]
+                              "result " + " and ".join(parts), actual, spec.get("message", ""),
+                              len(df), 0 if ok else 1)]
+
+
+def _sql_query(v, spec):
+    if v.sql_runner is None:
+        raise RuntimeError("no sql_runner configured")
+    result = v.sql_runner(spec)
+    if result.shape[1] == 0:
+        raise ValueError("SQL query must return at least one column")
+    return result
+
+
+@register("sql_report")
+def _sql_report(v, df, spec):
+    """Run a query and include its SQL text and result rows in the report."""
+    result = _sql_query(v, spec)
+    rows, columns = result.shape
+    return [ValidationOutcome("sql_report", spec.get("name", "query output"), True,
+                              spec.get("severity", "error"), "query executes successfully",
+                              f"{rows} row(s), {columns} column(s)", f"Query: {spec['query']}",
+                              rows, 0, result)]
