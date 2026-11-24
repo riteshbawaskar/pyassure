@@ -78,6 +78,8 @@ summary.step-head{list-style:none;cursor:pointer}summary.step-head::-webkit-deta
 .step-content{padding:0 10px 10px 45px}.step-message{margin:0 0 7px;color:#58667d;font-size:10px}
 .table-title{margin:7px 0 4px;color:#58667d;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .table-note{margin:-2px 0 4px;color:var(--muted);font-size:9px}
+.field-summary{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:5px 0;color:var(--muted);font-size:10px}
+.field-summary strong{color:var(--ink);font-weight:750}
 .tw{overflow-x:auto;overflow-y:auto;max-height:270px;overscroll-behavior:contain;margin:6px 0;border:1px solid var(--line);border-radius:7px}
 table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:6px 8px;border-bottom:1px solid #edf0f5;text-align:left;vertical-align:top;white-space:nowrap}
 th{position:sticky;top:0;background:#f8faff;color:#627089;font-size:9px;font-weight:800}tr:last-child td{border-bottom:0}
@@ -178,6 +180,23 @@ def _table_cell(value: str) -> str:
     return e(value)
 
 
+def _field_summary(t: Table) -> str:
+    if t.title != "Field comparison summary" or "RESULT" not in t.columns:
+        return ""
+    result_index = t.columns.index("RESULT")
+    results = [row[result_index].strip().lower() for row in t.rows if len(row) > result_index]
+    passed = sum(result in ("pass", "passed") for result in results)
+    failed = sum(result in ("fail", "failed") for result in results)
+    shown_note = (
+        f" <span>Counts for {len(t.rows)} shown</span>" if t.total_rows > len(t.rows) else ""
+    )
+    return (
+        f'<div class="field-summary"><strong>Total fields: {t.total_rows}</strong>'
+        f'<span class="status pass">Pass: {passed}</span>'
+        f'<span class="status fail">Fail: {failed}</span>{shown_note}</div>'
+    )
+
+
 def _table(t: Table) -> str:
     head = "".join(f"<th scope=\"col\">{e(column)}</th>" for column in t.columns)
     body = "".join(
@@ -189,7 +208,7 @@ def _table(t: Table) -> str:
         if t.total_rows > len(t.rows) else ""
     )
     return (
-        f'<div class="table-title">{e(t.title)}</div>{note}'
+        f'<div class="table-title">{e(t.title)}</div>{_field_summary(t)}{note}'
         f'<div class="tw"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
     )
 

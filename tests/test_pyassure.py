@@ -388,6 +388,9 @@ def test_standalone_report_has_feature_scenario_filters_and_right_aligned_status
     assert ".tw{overflow-x:auto;overflow-y:auto;max-height:270px;" in html
     assert '<span class="status pass">Pass</span>' in html
     assert '<span class="status fail">Fail</span>' in html
+    assert '<strong>Total fields: 2</strong>' in html
+    assert '<span class="status pass">Pass: 1</span>' in html
+    assert '<span class="status fail">Fail: 1</span>' in html
     assert '<span class="metric-label">Pass</span>' in html
     assert '<span class="metric-label">Fail</span>' in html
     assert '<span class="status passed">Pass</span>' in html
