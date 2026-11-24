@@ -44,7 +44,12 @@ web_server:                            # start the app under test if the url is 
   command: "{python} app/demo_app/server.py"
   url: http://127.0.0.1:8765/api/health
   startup_timeout_s: 30
+parameters:                            # shared values substituted into data configs at runtime
+  min_customer_id: "1015"
 ```
+Use `{{min_customer_id}}` in compare, validation, or Excel cell-compare YAML string values. Global
+parameters are also expanded with `${ENV}` / `${ENV:default}` and can be overridden for a scenario
+with the config step's `name`/`value` table.
 
 ## 3.2 `app/config/connections.yml`
 ```yaml

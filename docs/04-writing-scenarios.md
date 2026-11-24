@@ -49,8 +49,10 @@ Prefer **page-object steps in `app_steps.py`** for real applications ([chapter 5
 `the response time should be under N ms`.
 
 ## Data-driven scenarios
-Config-loading steps accept an optional table with `name` and `value` columns. Use `{{name}}` placeholders
-in any string value in compare, validation, or Excel cell-compare YAML configs. This is separate from
+Config-loading steps accept an optional table with `name` and `value` columns. Shared values can be
+defined in `app/config/pyassure.yml` under `parameters`; a scenario table overrides matching global
+values. Use `{{name}}` placeholders in any string value in compare, validation, or Excel cell-compare
+YAML configs. Substitution occurs when the config is loaded at runtime, and is separate from
 `${ENV}` environment-variable expansion. Supplied table values are also shown as scenario facts in the
 standalone HTML report. See the runnable [parameterized comparison feature](../app/features/data_compare_params.feature)
 and its [compare config](../app/datasets/compare/customers_from_id.yml).

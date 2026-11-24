@@ -372,6 +372,35 @@ def test_feature_config_table_applies_optional_name_value_params(tmp_path):
         "query": "SELECT * FROM orders WHERE batch_id = '{{batch_id}}'"}
 
 
+def test_global_config_params_apply_at_runtime_and_feature_values_override(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from pyassure import config
+    from pyassure.steps.data_steps import _load_feature_config
+
+    settings_path = tmp_path / "pyassure.yml"
+    settings_path.write_text('parameters:\n  batch_id: "${BATCH_ID}"\n')
+    config_path = tmp_path / "compare.yml"
+    config_path.write_text("query: SELECT * FROM orders WHERE batch_id = '{{batch_id}}'\n")
+    monkeypatch.setenv("PYASSURE_CONFIG", str(settings_path))
+    monkeypatch.setenv("BATCH_ID", "global-batch")
+    config.settings.cache_clear()
+    try:
+        assert _load_feature_config(SimpleNamespace(), str(config_path)) == {
+            "query": "SELECT * FROM orders WHERE batch_id = 'global-batch'"}
+
+        table = SimpleNamespace(
+            headings=["name", "value"],
+            rows=[SimpleNamespace(cells=["batch_id", "scenario-batch"])])
+        store = ResultStore("parameter test")
+        store.start_scenario("Feature", "Scenario", [])
+        assert _load_feature_config(
+            SimpleNamespace(table=table, store=store), str(config_path)) == {
+                "query": "SELECT * FROM orders WHERE batch_id = 'scenario-batch'"}
+        assert store.scenarios[0].info == {"Parameter: batch_id": "scenario-batch"}
+    finally:
+        config.settings.cache_clear()
+
+
 def test_archive_latest_reports_moves_existing_files_with_timestamp(tmp_path):
     from pyassure.runner import _archive_latest_reports
 

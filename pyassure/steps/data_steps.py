@@ -20,7 +20,7 @@ import time
 from behave import given, then, when
 
 from pyassure.bdd import checkpoint
-from pyassure.config import ConfigError, load_yaml, substitute_params
+from pyassure.config import ConfigError, load_yaml, settings, substitute_params
 from pyassure.data.compare import DatasetComparator
 from pyassure.data.connectors import fetch_dataset
 from pyassure.data.excel_cells import ExcelCellComparator
@@ -31,26 +31,38 @@ from pyassure.reporting.store import Table
 def _load_feature_config(context, path):
     """Load a config, applying an optional two-column name/value step table."""
     cfg = load_yaml(path)
-    table = getattr(context, "table", None)
-    if table is None:
-        return cfg
-
-    headings = [str(heading).strip().lower() for heading in table.headings]
-    if sorted(headings) != ["name", "value"]:
-        raise ConfigError('Config parameter table must have "name" and "value" columns')
-
-    params = {}
-    for row in table.rows:
-        cells = dict(zip(headings, row.cells))
-        name = cells["name"].strip()
-        if not name:
-            raise ConfigError("Config parameter names cannot be empty")
-        if name in params:
-            raise ConfigError(f"Config parameter '{name}' is defined more than once")
-        params[name] = cells["value"]
+    params = settings().get("parameters", {})
+    if not isinstance(params, dict):
+        raise ConfigError('The "parameters" setting must be a mapping of names to values')
+    configured_params = {}
     for name, value in params.items():
-        context.store.info(f"Parameter: {name}", value)
-    return substitute_params(cfg, params)
+        if not isinstance(name, str) or not name:
+            raise ConfigError("Global config parameter names must be non-empty strings")
+        if not isinstance(value, (str, int, float, bool)):
+            raise ConfigError(f"Global config parameter '{name}' must have a scalar value")
+        configured_params[name] = str(value)
+    params = configured_params
+
+    table = getattr(context, "table", None)
+    if table is not None:
+        headings = [str(heading).strip().lower() for heading in table.headings]
+        if sorted(headings) != ["name", "value"]:
+            raise ConfigError('Config parameter table must have "name" and "value" columns')
+
+        feature_params = {}
+        for row in table.rows:
+            cells = dict(zip(headings, row.cells))
+            name = cells["name"].strip()
+            if not name:
+                raise ConfigError("Config parameter names cannot be empty")
+            if name in feature_params:
+                raise ConfigError(f"Config parameter '{name}' is defined more than once")
+            feature_params[name] = cells["value"]
+        params.update(feature_params)
+        for name, value in feature_params.items():
+            context.store.info(f"Parameter: {name}", value)
+
+    return substitute_params(cfg, params) if params else cfg
 
 
 # ====================================================================================================

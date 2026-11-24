@@ -42,6 +42,7 @@ APP_DIR = _app_dir()                                         # application-speci
 
 # Defaults for every switch. app/config/pyassure.yml only needs to list what it changes.
 DEFAULTS: Dict[str, Any] = {
+    "parameters": {},                    # shared {{name}} values for compare/validation/Excel configs
     "ui": {
         "browser": "chromium",          # chromium | firefox | webkit
         "headless": True,

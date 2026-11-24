@@ -3,6 +3,11 @@
 # (full list of keys + defaults: pyassure/config.py -> DEFAULTS, docs/03-configuration-reference.md).
 # ============================================================================================
 
+# Shared {{name}} values for compare, validation, and Excel cell-compare configs.
+# Feature-level name/value tables can override these values.
+# parameters:
+#   min_customer_id: "1015"
+
 ui:                                   # Playwright browser tests
   base_url: http://127.0.0.1:8765     # page objects use relative paths like "/customers.html"
   headless: true                      # false = watch the browser   (per run: -D headless=false)
