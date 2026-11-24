@@ -77,7 +77,7 @@ def _tbl(context, title, df):
 def _field_comparison_summary(context):
     """Report each compared field with its mismatch count, including fields that passed."""
     result = context.result
-    rows = [[field, "PASSED" if count == 0 else "FAILED", str(count)]
+    rows = [[field, "Pass" if count == 0 else "Fail", str(count)]
             for field, count in result.column_mismatch_counts.items()]
     if not rows:
         return []

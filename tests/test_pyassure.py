@@ -182,7 +182,7 @@ def test_compare_duplicates_mapping_and_exclude():
 
 
 @pytest.mark.parametrize(("target_a", "status"), [("different", "FAILED"), ("same", "PASSED")])
-def test_field_comparison_report_lists_passed_and_failed_fields(target_a, status):
+def test_field_comparison_report_lists_pass_and_fail_fields(target_a, status):
     from types import SimpleNamespace
     from pyassure.reporting.store import ResultStore
     from pyassure.steps.data_steps import step_no_mismatches, step_overall
@@ -205,7 +205,10 @@ def test_field_comparison_report_lists_passed_and_failed_fields(target_a, status
 
     summary = store.scenarios[0].checkpoints[0].tables[0]
     assert summary.title == "Field comparison summary"
-    assert summary.rows == [["A", status, "1" if status == "FAILED" else "0"], ["B", "PASSED", "0"]]
+    assert summary.rows == [
+        ["A", "Fail" if status == "FAILED" else "Pass", "1" if status == "FAILED" else "0"],
+        ["B", "Pass", "0"],
+    ]
 
     composite_store = ResultStore("composite field comparison")
     composite_store.start_scenario("Feature", "Scenario", [])
@@ -287,7 +290,7 @@ def test_sql_report_check_includes_query_and_rows_in_standalone_html():
     assert outcomes[0].passed is True
     assert f"Query: {query}" in html
     assert "SQL query results" in html and "SHIPPED" in html and "ORDER_COUNT" in html
-    assert '<details class="ck PASSED" open>' in html
+    assert '<details class="step" data-status="PASSED" open>' in html
 
 
 def test_sql_report_accepts_empty_result_sets():
@@ -356,20 +359,40 @@ def test_result_store_json_roundtrip_and_merge(tmp_path):
     assert json.loads((paths[0]).read_text())["framework"] == "PyAssure"
 
 
-def test_standalone_report_has_feature_scenario_icons_and_tag_filter():
+def test_standalone_report_has_feature_scenario_filters_and_right_aligned_status():
     from pyassure.reporting.html import render_html
+    from pyassure.reporting.store import Table
 
     store = ResultStore("t")
     store.start_scenario("Feature A", "Scenario A", ["smoke", "api"])
+    store.checkpoint("Rows match", PASSED, 2, 2, tables=[
+        Table("Evidence", ["ID"], [["1"], ["2"]], 2),
+        Table("Field comparison summary", ["FIELD", "RESULT"], [["NAME", "Pass"], ["EMAIL", "Fail"]], 2),
+    ])
     store.end_scenario("passed")
     html = render_html(store)
 
-    assert "◆</span> Feature A" in html
-    assert "▸</span>" in html
-    assert '<select id="tag-filter"><option value="">All tags</option>' in html
+    assert '<span class="feature-label">Feature</span><h2 class="feature-name">Feature A</h2>' in html
+    assert '<select class="filter-select" id="tag-filter"' in html
+    assert '<select class="filter-select" id="feature-filter"' in html
     assert '<option value="api">@api</option>' in html and '<option value="smoke">@smoke</option>' in html
     assert 'data-tags="smoke api"' in html
+    assert 'data-state="warning"' in html
     assert "function applyFilters()" in html and "tags.includes(tag)" in html
+    scenario_summary = html.split('<summary class="scenario-head">', 1)[1].split("</summary>", 1)[0]
+    assert scenario_summary.index("scenario-main") < scenario_summary.index("scenario-meta")
+    assert scenario_summary.index("scenario-meta") < scenario_summary.index("scenario-status")
+    step_summary = html.split('<summary class="step-head">', 1)[1].split("</summary>", 1)[0]
+    assert step_summary.index("step-name") < step_summary.index("step-values")
+    assert step_summary.index("step-values") < step_summary.index("step-status")
+    assert ".tw{overflow-x:auto;overflow-y:auto;max-height:270px;" in html
+    assert '<span class="status pass">Pass</span>' in html
+    assert '<span class="status fail">Fail</span>' in html
+    assert '<span class="metric-label">Pass</span>' in html
+    assert '<span class="metric-label">Fail</span>' in html
+    assert '<span class="status passed">Pass</span>' in html
+    assert "color-scheme:light" in html
+    assert "prefers-color-scheme:dark" not in html
 
 
 # ============================================================== new in PyAssure 2.0
