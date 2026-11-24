@@ -181,6 +181,49 @@ def test_compare_duplicates_mapping_and_exclude():
     assert r.compared_fields == ["A"] and r.mismatched_rows == 0
 
 
+@pytest.mark.parametrize(("target_a", "status"), [("different", "FAILED"), ("same", "PASSED")])
+def test_field_comparison_report_lists_passed_and_failed_fields(target_a, status):
+    from types import SimpleNamespace
+    from pyassure.reporting.store import ResultStore
+    from pyassure.steps.data_steps import step_no_mismatches, step_overall
+
+    result = _cmp({"ID": [1, 2], "A": ["same", "same"], "B": ["ok", "ok"]},
+                  {"ID": [1, 2], "A": [target_a, "same"], "B": ["ok", "ok"]})
+    store = ResultStore("field comparison")
+    store.start_scenario("Feature", "Scenario", [])
+    context = SimpleNamespace(
+        result=result,
+        comparator=SimpleNamespace(opts=SimpleNamespace(max_report_rows=200)),
+        store=store,
+    )
+
+    if status == "FAILED":
+        with pytest.raises(AssertionError):
+            step_no_mismatches(context)
+    else:
+        step_no_mismatches(context)
+
+    summary = store.scenarios[0].checkpoints[0].tables[0]
+    assert summary.title == "Field comparison summary"
+    assert summary.rows == [["A", status, "1" if status == "FAILED" else "0"], ["B", "PASSED", "0"]]
+
+    composite_store = ResultStore("composite field comparison")
+    composite_store.start_scenario("Feature", "Scenario", [])
+    composite_context = SimpleNamespace(
+        result=result,
+        comparator=SimpleNamespace(opts=SimpleNamespace(max_report_rows=200)),
+        store=composite_store,
+    )
+    if status == "FAILED":
+        with pytest.raises(AssertionError):
+            step_overall(composite_context)
+    else:
+        step_overall(composite_context)
+    composite_checkpoint = next(
+        cp for cp in composite_store.scenarios[0].checkpoints if cp.name == "No field mismatches")
+    assert composite_checkpoint.tables[0].rows == summary.rows
+
+
 def test_compare_reports_config_errors():
     with pytest.raises(ConfigError):
         _cmp({"ID": [1]}, {"ID": [1]}, compare_fields=["NOPE"])
@@ -412,6 +455,39 @@ def test_archive_latest_reports_moves_existing_files_with_timestamp(tmp_path):
     assert not (tmp_path / "log" / "bdd_index_20261121-132745.html").exists()
 
 
+def test_backup_validation_report_copies_timestamped_reports_without_overwriting(tmp_path):
+    from pyassure.reporting.archive import backup_validation_report
+
+    report = tmp_path / "runs" / "validation_report.html"
+    report.parent.mkdir()
+    report.write_text("completed report")
+
+    first = backup_validation_report(tmp_path / "reports", report, "20261124-153500")
+    second = backup_validation_report(tmp_path / "reports", report, "20261124-153500")
+
+    assert first.read_text() == second.read_text() == "completed report"
+    assert first.name == "validation_report_20261124-153500.html"
+    assert second.name == "validation_report_20261124-153500-1.html"
+    assert report.exists()
+
+
+def test_plain_behave_after_all_creates_timestamped_report_backup(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from pyassure import hooks
+
+    monkeypatch.setattr(hooks, "section", lambda name: {"standalone_html": True})
+    monkeypatch.setattr(hooks.runtime, "shutdown", lambda: None)
+    monkeypatch.setattr(hooks.services, "stop", lambda server: None)
+    store = ResultStore("behave report")
+    context = SimpleNamespace(report_dir=tmp_path, worker="", store=store)
+
+    hooks.after_all(context)
+
+    backups = list((tmp_path / "backup").glob("validation_report_*.html"))
+    assert len(backups) == 1
+    assert "PyAssure" in backups[0].read_text(encoding="utf-8")
+
+
 def test_project_root_can_be_overridden(monkeypatch, tmp_path):
     from pyassure import config
 
@@ -518,6 +594,39 @@ def test_runner_shard_split_is_a_partition():
     parts = [units[i::3] for i in range(3)]                   # what `--shard i/3` does
     assert sorted(u.id for p in parts for u in p) == [u.id for u in units]
     assert max(map(len, parts)) - min(map(len, parts)) <= 1   # balanced
+
+
+def test_runner_worker_count_uses_auto_cap_and_available_units(monkeypatch):
+    from pyassure import runner
+
+    monkeypatch.setattr(runner.os, "cpu_count", lambda: 8)
+    assert runner._worker_count("auto", 10) == 4
+    assert runner._worker_count("auto", 2) == 2
+    assert runner._worker_count("0", 2) == 1
+
+
+def test_runner_writes_run_outputs_and_preserves_summary_types(tmp_path):
+    from pyassure.runner import Result, Unit, _write_run_outputs
+
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "runs" / "20261124-160000"
+    worker_dir = run_dir / "workers" / "feature-a"
+    junit_dir = worker_dir / "junit"
+    junit_dir.mkdir(parents=True)
+    (junit_dir / "TEST-feature.xml").write_text("<testsuite/>")
+    result = Result(Unit("feature-a", "feature-a.feature", "Feature A"),
+                    status="passed", duration=0.25, worker_dir=str(worker_dir))
+    store = ResultStore("Runner output test")
+    info = {"workers": "1", "scheme": "feature", "wall time": "0.3s"}
+
+    backup = _write_run_outputs(report_root, run_dir, [result], store, info,
+                                {"feature-a": 0.25}, 0.25, 1, "feature")
+
+    summary = json.loads((run_dir / "run_summary.json").read_text())
+    assert summary["workers"] == 1 and summary["scheme"] == "feature"
+    assert (run_dir / "junit" / "feature-a__TEST-feature.xml").exists()
+    assert (report_root / "validation_report.html").exists()
+    assert backup.read_bytes() == (run_dir / "validation_report.html").read_bytes()
 
 
 def test_api_calls_are_recorded_and_merged(tmp_path):

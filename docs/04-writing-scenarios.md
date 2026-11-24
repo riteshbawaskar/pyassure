@@ -34,6 +34,9 @@ and the scenario is marked failed at the end. This does not defer errors in setu
 | `both workbooks should contain the same sheets` / `there should be no cell differences` | |
 | `the sheet "S" should have no cell differences` / `the cell "B2" in sheet "S" should match` | |
 
+The field-mismatch checkpoint includes a per-field summary with pass/fail status and mismatch count
+for every compared field, as well as mismatch details when differences are found.
+
 ## UI steps (`pyassure.steps.ui_steps`) - generic, selector based
 `Given I am logged in as "session"` - `Given I open the page "url"` - `When I click|fill|select ...` -
 `When I wait for "sel" to be visible` - `When I take a screenshot named "x"` - `Then the page title should be "x"` -

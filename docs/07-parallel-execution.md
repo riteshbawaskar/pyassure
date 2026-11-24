@@ -28,6 +28,10 @@ discover units (behave tag rules) -> [--shard] -> start app server once -> warm 
 ```
 Why **processes**: Playwright's sync API allows one driver per process; each worker owns its browser and gives each scenario a fresh context - no shared state, no locks in tests.
 
+Each worker writes into its own folder. The runner merges worker JSON and JUnit files after all workers
+finish; standard Behave HTML reports stay separate and are linked from `bdd_index.html`. Failed units
+without a results JSON are added to the merged report with their last log lines.
+
 ## Recommended Playwright setup
 1. **Parallelise by process, isolate by context.** One browser per worker, one context per scenario (already how PyAssure works).
 2. **Log in once.** Put the session in `sessions.warmup`; the runner creates the storageState before workers start and they all reuse it. Prefer
@@ -45,10 +49,14 @@ Why **processes**: Playwright's sync API allows one driver per process; each wor
 ```
 reports/
   validation_report.html / .json   latest merged PyAssure report      bdd_index.html   links to each unit's standard BDD report
+  backup/validation_report_<timestamp>.html  copy of each completed merged validation report
   allure-report/                   (when Allure is on and the CLI exists)
   runs/<timestamp>/  validation_report.html  validation_results.json  allure-results/  junit/  run_summary.json  workers/<unit>/{behave.log,...}
 ```
 A worker that crashes before reporting appears as an *error* scenario with its last log lines. The standard behave HTML cannot be merged; `bdd_index.html` links to each one.
+Each run keeps its complete outputs under `runs/<timestamp>/`. Previous root-level latest reports are
+moved to `log/` before the latest copies are refreshed; the merged standalone validation report is also
+copied to `backup/validation_report_<timestamp>.html`.
 
 ## CI example
 ```yaml

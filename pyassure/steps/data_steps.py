@@ -74,6 +74,18 @@ def _tbl(context, title, df):
     return [Table.from_df(title, df, limit)] if not df.empty else []
 
 
+def _field_comparison_summary(context):
+    """Report each compared field with its mismatch count, including fields that passed."""
+    result = context.result
+    rows = [[field, "PASSED" if count == 0 else "FAILED", str(count)]
+            for field, count in result.column_mismatch_counts.items()]
+    if not rows:
+        return []
+    limit = context.comparator.opts.max_report_rows
+    return [Table("Field comparison summary", ["FIELD", "RESULT", "MISMATCHES"],
+                  rows[:limit], len(rows))]
+
+
 # ------------------------------------------------------------------------- Given / When
 @given('the compare config "{path}"')
 def step_load_compare_config(context, path):
@@ -143,11 +155,8 @@ def step_same_columns(context):
 @then("there should be no field mismatches")
 def step_no_mismatches(context):
     r = context.result
-    tables = []
+    tables = _field_comparison_summary(context)
     if r.mismatched_rows:
-        # First a per-column summary, then the individual differing values.
-        counts = [[c, str(n)] for c, n in r.column_mismatch_counts.items() if n]
-        tables = [Table("Mismatches per column", ["COLUMN", "MISMATCHES"], counts, len(counts))]
         tables += _tbl(context, "Field mismatches", r.mismatches)
     checkpoint(context, "No field mismatches", r.mismatched_rows == 0, "0 rows with differences",
                f"{r.mismatched_rows} of {r.common_rows} rows", tables=tables)
@@ -171,7 +180,8 @@ def step_mismatch_pct(context, pct):
     # Percentage of COMMON rows that have at least one differing field.
     r = context.result
     checkpoint(context, f"Mismatch rate <= {pct:g}%", r.mismatch_pct <= pct, f"<= {pct:g}%",
-               f"{r.mismatch_pct:.2f}%", tables=_tbl(context, "Field mismatches", r.mismatches))
+               f"{r.mismatch_pct:.2f}%",
+               tables=_field_comparison_summary(context) + _tbl(context, "Field mismatches", r.mismatches))
 
 
 @then("the data comparison should pass")
@@ -194,7 +204,8 @@ def step_overall(context):
     ok.append(checkpoint(context, "No duplicate primary keys", dups == 0, "0", dups, raise_on_fail=False))
     ok.append(checkpoint(context, "No field mismatches", r.mismatched_rows == 0, "0 rows with differences",
                          f"{r.mismatched_rows} of {r.common_rows} rows",
-                         tables=_tbl(context, "Field mismatches", r.mismatches), raise_on_fail=False))
+                         tables=_field_comparison_summary(context)
+                         + _tbl(context, "Field mismatches", r.mismatches), raise_on_fail=False))
     if not all(ok) and not getattr(context, "continue_on_failure", False):
         raise AssertionError("One or more comparison checkpoints failed - see report")
 

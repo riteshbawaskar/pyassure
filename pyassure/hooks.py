@@ -17,11 +17,13 @@ Responsibilities: result store, optional Allure, app server lifecycle, UI failur
 """
 import os
 import shutil
+from datetime import datetime
 
 from pyassure import services
 from pyassure.branding import BANNER
 from pyassure.config import BASE_DIR, section
 from pyassure.reporting import allure_support
+from pyassure.reporting.archive import backup_validation_report
 from pyassure.reporting.html import write_html_report
 from pyassure.reporting.store import ResultStore
 from pyassure.web import api, runtime
@@ -96,7 +98,9 @@ def after_all(context):
         html = write_html_report(context.store, context.report_dir / "validation_report.html")
         context.store.write_json(context.report_dir / "validation_results.json")
         if not context.worker:
-            print(f"\nPyAssure report : {html}")
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup = backup_validation_report(context.report_dir, html, timestamp)
+            print(f"\nPyAssure report : {html}\nBackup report   : {backup}")
     services.stop(_server)
 
 

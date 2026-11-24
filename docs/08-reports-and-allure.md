@@ -11,7 +11,9 @@ Every run can produce up to **four** outputs; all carry the PyAssure name and ve
 
 When `run_tests.py` updates the latest merged report files, any previous `validation_report.html`,
 `validation_results.json`, and `bdd_index.html` are moved to `reports/log/` with the run timestamp
-appended to each filename. Timestamped run folders under `reports/runs/` are also retained.
+appended to each filename. Both plain `behave` and `run_tests.py` save a copy of each newly generated
+standalone validation report as `reports/backup/validation_report_<timestamp>.html` (or under the
+selected report directory). Existing timestamped run folders under `reports/runs/` are also retained.
 
 ## 8.1 PyAssure standalone report
 One self-contained file (CSS, JS, screenshots inlined; works offline; dark-mode aware). Header: name/version, title, time, environment (+ workers/scheme/wall time/shard
