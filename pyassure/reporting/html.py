@@ -1,11 +1,13 @@
 """Render a compact, standalone HTML report for scenarios and validation checkpoints."""
 from __future__ import annotations
 
+import os
 from html import escape as e
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pyassure.branding import NAME, TAGLINE, VERSION
+from pyassure.config import BASE_DIR
 from pyassure.reporting.store import (FAILED, WARNING, Checkpoint, ResultStore,
                                       ScenarioRecord, Table)
 
@@ -63,6 +65,7 @@ background:#edf0f5;color:#657187;font-size:9px;font-weight:850;letter-spacing:.0
 .info-item{min-width:0;padding:7px 9px;border:1px solid #edf0f5;border-radius:8px;background:#fafbfd}
 .info-key{display:block;color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.035em;text-transform:uppercase}
 .info-value{display:block;overflow-wrap:anywhere;margin-top:2px;color:#35435c;font-size:11px}
+.info-value a{color:var(--blue);font-weight:650;text-decoration:none}.info-value a:hover{text-decoration:underline}
 .steps-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:5px 0 7px}
 .steps-title{margin:0;font-size:12px;font-weight:800}.steps-hint{color:var(--muted);font-size:10px}
 .steps{display:grid;gap:6px}.step{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
@@ -245,7 +248,7 @@ def _checkpoint(c: Checkpoint, index: int) -> str:
     )
 
 
-def _scenario(s: ScenarioRecord) -> str:
+def _scenario(s: ScenarioRecord, report_path: Path) -> str:
     status = e(s.status)
     status_class = e(s.status.lower())
     status_text = e(_status_label(s.status))
@@ -257,6 +260,13 @@ def _scenario(s: ScenarioRecord) -> str:
         f'<span class="info-value">{e(value)}</span></div>'
         for key, value in s.info.items()
     )
+    for link in s.report_links:
+        href = (link.path if link.path.startswith("file://") else
+                os.path.relpath(BASE_DIR / link.path, report_path.parent).replace(os.sep, "/"))
+        info += (
+            f'<div class="info-item"><span class="info-key">Report artifact</span>'
+            f'<span class="info-value"><a href="{e(href)}" download>{e(link.title)}</a></span></div>'
+        )
     errors = "".join(f'<div class="error-box">{e(error)}</div>' for error in s.errors)
     validations = "".join(_checkpoint(checkpoint, index) for index, checkpoint in enumerate(s.checkpoints))
     if not validations:
@@ -302,7 +312,8 @@ def _scenario(s: ScenarioRecord) -> str:
     )
 
 
-def render_html(store: ResultStore) -> str:
+def render_html(store: ResultStore, report_path: Optional[Path] = None) -> str:
+    report_path = Path(report_path) if report_path else BASE_DIR / "reports" / "validation_report.html"
     totals = store.totals()
     scenario_passed = sum(scenario.status == "passed" for scenario in store.scenarios)
     scenario_failed = sum(scenario.status == "failed" for scenario in store.scenarios)
@@ -345,7 +356,7 @@ def render_html(store: ResultStore) -> str:
             f'<section class="feature-group" data-feature="{index}"><header class="feature-head">'
             f'<div><span class="feature-label">Feature</span><h2 class="feature-name">{e(feature)}</h2></div>'
             f'<div class="feature-summary">{feature_summary}</div></header>'
-            f'{"".join(_scenario(scenario) for scenario in scenarios)}</section>'
+            f'{"".join(_scenario(scenario, report_path) for scenario in scenarios)}</section>'
         )
     body = "".join(feature_groups)
 
@@ -409,5 +420,5 @@ def render_html(store: ResultStore) -> str:
 def write_html_report(store: ResultStore, path: Path) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_html(store), encoding="utf-8")
+    path.write_text(render_html(store, path), encoding="utf-8")
     return path

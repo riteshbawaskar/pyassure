@@ -145,6 +145,10 @@ sheets: all                            # or [Summary] or [{source: Q1, target: Q
 options: {trim_strings: true, ignore_case: false, empty_equals_none: true, numeric_tolerance: 0.0,
           compare_formulas: false, range: A1:H200, ignore_ranges: [F1:F200], max_diffs_stored: 5000, max_report_rows: 200}
 ```
+The `When I generate the Excel comparison workbook` step uses the configured source and target
+paths to create a formatted `.xlsx` workbook in the report directory. Its comparison rules,
+summary sheet, and cell formatting come from `pyassure.excel_compare`; `options.numeric_tolerance`
+sets its absolute numeric tolerance. The validation HTML report links to the generated workbook.
 
 ## 3.7 `behave.ini` (rarely edited)
 `paths`, `format`/`outfiles` (branded BDD HTML + console), `default_tags` (`-@requires_creds -@requires_browser -@demo_fail`),

@@ -331,6 +331,48 @@ def test_excel_cell_compare_locates_differences(tmp_path):
     assert ExcelCellComparator(cfg).compare().passed
 
 
+def test_excel_comparison_step_writes_formatted_workbook_and_report_link(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from openpyxl import load_workbook
+
+    import pyassure.reporting.html as report_html
+    import pyassure.steps.data_steps as data_steps
+
+    source, target = tmp_path / "source.xlsx", tmp_path / "target.xlsx"
+    _book(source, {"A1": "before", "B1": 1})
+    _book(target, {"A1": "after", "B1": 3})
+    monkeypatch.setattr(data_steps, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(report_html, "BASE_DIR", tmp_path)
+    report_dir = tmp_path / "reports" / "runs" / "run-001" / "workers" / "excel"
+    store = ResultStore("Excel compare")
+    store.start_scenario("Excel", "Formatted workbook", [])
+    context = SimpleNamespace(
+        cell_cfg={"source": {"path": str(source)}, "target": {"path": str(target)},
+                  "options": {"numeric_tolerance": 0.0}},
+        report_dir=report_dir,
+        scenario=SimpleNamespace(name="Formatted workbook"),
+        store=store,
+    )
+
+    data_steps.step_generate_excel_comparison_workbook(context)
+    workbook = load_workbook(context.excel_compare_workbook)
+    assert workbook["_Comparison_Summary"]["B1"].value == str(source)
+    assert workbook["S"]["A1"].value == "source=before | target=after"
+    assert workbook["S"]["A1"].fill.fgColor.rgb.endswith("FFC000")
+    assert workbook["S"]["B1"].value == "source=1 | target=3 | diff=-2"
+    assert workbook["S"]["B1"].fill.fgColor.rgb.endswith("FF9999")
+
+    run_report = tmp_path / "reports" / "runs" / "run-001" / "validation_report.html"
+    report_html.write_html_report(store, run_report)
+    run_html = run_report.read_text(encoding="utf-8")
+    assert f'href="workers/excel/{context.excel_compare_workbook.name}"' in run_html
+    latest_report = tmp_path / "reports" / "validation_report.html"
+    report_html.write_html_report(store, latest_report)
+    latest_html = latest_report.read_text(encoding="utf-8")
+    assert f'href="runs/run-001/workers/excel/{context.excel_compare_workbook.name}"' in latest_html
+    assert "Download Excel comparison workbook" in run_html
+
+
 # --------------------------------------------------------- discovery + report merge
 def test_discover_units_respects_tags_and_scheme():
     feats = discover(["app/features"], "feature", [])
@@ -349,6 +391,7 @@ def test_result_store_json_roundtrip_and_merge(tmp_path):
         s.start_scenario("F", f"sc{i}", ["demo"])
         s.checkpoint("c", PASSED, 1, 1)
         s.attach_image("shot", b"\x89PNG")
+        s.link_file("Workbook", "reports/result.xlsx")
         s.end_scenario("passed")
         p = tmp_path / f"{i}.json"
         s.write_json(p)
@@ -356,6 +399,7 @@ def test_result_store_json_roundtrip_and_merge(tmp_path):
     merged = ResultStore.merge(paths, "Merged", run_info={"workers": "2"})
     assert [x.name for x in merged.scenarios] == ["sc0", "sc1"]
     assert merged.totals()["checkpoints_passed"] == 2 and merged.scenarios[0].images[0].title == "shot"
+    assert merged.scenarios[0].report_links[0].path == "reports/result.xlsx"
     assert json.loads((paths[0]).read_text())["framework"] == "PyAssure"
 
 

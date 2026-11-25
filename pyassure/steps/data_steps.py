@@ -15,16 +15,22 @@ Import in app/features/steps/framework_steps.py. Full step list: docs/04-writing
 Every Then step asserts through `checkpoint()`, so each validation shows in the reports with expected
 vs actual values and evidence (missing keys, mismatching values, invalid rows, differing cells).
 """
+import math
+import os
+import re
 import time
+from datetime import datetime
+from pathlib import Path
 
 from behave import given, then, when
 
 from pyassure.bdd import checkpoint
-from pyassure.config import ConfigError, load_yaml, settings, substitute_params
+from pyassure.config import BASE_DIR, ConfigError, load_yaml, resolve_path, settings, substitute_params
 from pyassure.data.compare import DatasetComparator
 from pyassure.data.connectors import fetch_dataset
 from pyassure.data.excel_cells import ExcelCellComparator
 from pyassure.data.validate import DataValidator
+from pyassure.excel_compare import compare_workbooks
 from pyassure.reporting.store import Table
 
 
@@ -311,6 +317,43 @@ def step_run(context):
     context.store.info("Cells compared", r.cells_compared)
     context.store.info("Cells different", r.total_diffs)
     context.store.info("Compare time", f"{time.time() - t0:.2f}s")
+
+
+@when("I generate the Excel comparison workbook")
+def step_generate_excel_comparison_workbook(context):
+    cfg = context.cell_cfg
+    source = resolve_path(cfg["source"]["path"])
+    target = resolve_path(cfg["target"]["path"])
+    for label, path in (("Source", source), ("Target", target)):
+        if not path.is_file():
+            raise ConfigError(f"{label} Excel workbook not found: {path}")
+        if path.suffix.lower() not in (".xlsx", ".xlsm"):
+            raise ConfigError(f"{label} Excel workbook must be .xlsx or .xlsm: {path}")
+
+    options = cfg.get("options", {})
+    if not isinstance(options, dict):
+        raise ConfigError('Excel compare "options" must be a mapping')
+    tolerance = options.get("numeric_tolerance", 0.0)
+    if (isinstance(tolerance, bool) or not isinstance(tolerance, (int, float))
+            or not math.isfinite(tolerance) or tolerance < 0):
+        raise ConfigError('Excel compare "options.numeric_tolerance" must be a non-negative number')
+
+    scenario = (re.sub(r"[^A-Za-z0-9_-]+", "_", context.scenario.name).strip("_") or "comparison")[:80]
+    filename = f"excel_comparison_{scenario}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.xlsx"
+    output = Path(context.report_dir) / filename
+    output.parent.mkdir(parents=True, exist_ok=True)
+    results = compare_workbooks(str(source), str(target), str(output), float(tolerance))
+
+    context.excel_compare_workbook = output
+    context.store.info("Workbook mismatches", sum(results.values()))
+    try:
+        report_path = os.path.relpath(output, BASE_DIR).replace(os.sep, "/")
+    except ValueError:
+        report_path = output.as_uri()
+    context.store.link_file(
+        "Download Excel comparison workbook",
+        report_path,
+    )
 
 
 @then("both workbooks should contain the same sheets")

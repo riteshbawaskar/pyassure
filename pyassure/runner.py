@@ -243,6 +243,7 @@ def _write_run_outputs(report_root: Path, run_dir: Path, results: List[Result],
     """Write run artifacts, archive replaced latest files, and refresh latest copies."""
     write_html_report(store, run_dir / "validation_report.html")
     backup_report = backup_validation_report(report_root, run_dir / "validation_report.html", run_dir.name)
+    write_html_report(store, backup_report)
     store.write_json(run_dir / "validation_results.json")
     (run_dir / "bdd_index.html").write_text(bdd_index(results, run_dir, info), encoding="utf-8")
     (run_dir / "run_summary.json").write_text(json.dumps({
@@ -263,8 +264,9 @@ def _write_run_outputs(report_root: Path, run_dir: Path, results: List[Result],
 
     latest_reports = ("validation_report.html", "validation_results.json", "bdd_index.html")
     _archive_latest_reports(report_root, list(latest_reports), run_dir.name)
-    for name in ("validation_report.html", "validation_results.json"):
+    for name in ("validation_results.json",):
         shutil.copy(run_dir / name, report_root / name)
+    write_html_report(store, report_root / "validation_report.html")
     (report_root / "bdd_index.html").write_text(bdd_index(results, report_root, info), encoding="utf-8")
     (report_root / ".durations.json").write_text(json.dumps(history))
     return backup_report

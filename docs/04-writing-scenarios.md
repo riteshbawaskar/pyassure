@@ -31,6 +31,7 @@ and the scenario is marked failed at the end. This does not defer errors in setu
 | `Given the validation config "path"` / `When I run the data validations` | |
 | `all validations should pass` / `all "not_null" validations should pass` / `the validation "name" should pass` | |
 | `Given the excel compare config "path"` / `When I run the excel cell comparison` | |
+| `When I generate the Excel comparison workbook` | Writes the formatted workbook to the report directory and links it in the validation HTML report |
 | `both workbooks should contain the same sheets` / `there should be no cell differences` | |
 | `the sheet "S" should have no cell differences` / `the cell "B2" in sheet "S" should match` | |
 

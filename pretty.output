@@ -1,13 +1,13 @@
-@ui @requires_browser
-Feature: Customer directory UI (Playwright + Page Object Model + storageState) # app/features/ui_customers.feature:2
-  As a QA engineer
-  I want UI tests that start already logged in and use page objects
-  So that tests are fast, readable and survive UI changes
-  @demo_fail
-  Scenario: A wrong UI expectation is reported with a screenshot          # app/features/ui_customers.feature:48
-    Given I am logged in as "admin"                                       # pyassure/steps/ui_steps.py:42
-    When I open the customers page                                        # app/features/steps/app_steps.py:36
-    Then the element "#heading" should contain the text "Order Directory" # pyassure/steps/ui_steps.py:93
-      ASSERT FAILED: #heading contains text: expected Order Directory; actual AssertionError. Locator expected to contain text 'Order Directory'
-
+@excel
+Feature: Excel cell-to-cell comparison # app/features/excel_cell_compare.feature:2
+  As a report owner
+  I want to compare two workbooks cell by cell
+  So that unintended changes between report versions are caught
+  @demo
+  Scenario: Cosmetic differences are ignored                                         # app/features/excel_cell_compare.feature:8
+    Given the excel compare config "app/datasets/cell_compare/sales_v1_vs_v2_ok.yml" # pyassure/steps/data_steps.py:302
+    When I run the excel cell comparison                                             # pyassure/steps/data_steps.py:310
+    And I generate the Excel comparison workbook                                     # pyassure/steps/data_steps.py:322
+    Then both workbooks should contain the same sheets                               # pyassure/steps/data_steps.py:359
+    And there should be no cell differences                                          # pyassure/steps/data_steps.py:368
 

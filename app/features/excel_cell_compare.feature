@@ -8,6 +8,7 @@ Feature: Excel cell-to-cell comparison
   Scenario: Cosmetic differences are ignored
     Given the excel compare config "app/datasets/cell_compare/sales_v1_vs_v2_ok.yml"
     When I run the excel cell comparison
+    And I generate the Excel comparison workbook
     Then both workbooks should contain the same sheets
     And there should be no cell differences
 
@@ -15,6 +16,7 @@ Feature: Excel cell-to-cell comparison
   Scenario: Changed cells are located precisely
     Given the excel compare config "app/datasets/cell_compare/sales_v1_vs_v2_diff.yml"
     When I run the excel cell comparison
+    And I generate the Excel comparison workbook
     Then both workbooks should contain the same sheets
     And the cell "A2" in sheet "Summary" should match
     And there should be no cell differences

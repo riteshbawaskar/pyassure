@@ -77,6 +77,13 @@ class Image:
 
 
 @dataclass
+class ReportLink:
+    """A downloadable report artifact, addressed relative to the project root or by file URI."""
+    title: str
+    path: str
+
+
+@dataclass
 class ApiCall:
     """One HTTP call made through ApiClient (evidence shown in the report's 'API calls' table)."""
     method: str
@@ -99,6 +106,7 @@ class ScenarioRecord:
     errors: List[str] = field(default_factory=list)
     images: List[Image] = field(default_factory=list)
     api_calls: List[ApiCall] = field(default_factory=list)
+    report_links: List[ReportLink] = field(default_factory=list)
     _t0: float = field(default_factory=time.time, repr=False)   # start time (not exported)
 
     def count(self, status: str) -> int:
@@ -139,6 +147,10 @@ class ResultStore:
     def attach_image(self, title: str, png: bytes) -> None:
         if self.current and png:
             self.current.images.append(Image(title, base64.b64encode(png).decode()))
+
+    def link_file(self, title: str, path: str) -> None:
+        if self.current:
+            self.current.report_links.append(ReportLink(title, path))
 
     def api_call(self, resp, limit: int = 600) -> None:
         """Record an ApiResponse (bodies are truncated to keep the report compact)."""
@@ -195,5 +207,6 @@ class ResultStore:
                     for c in s.get("checkpoints", [])]
                 s["images"] = [Image(**i) for i in s.get("images", [])]
                 s["api_calls"] = [ApiCall(**a) for a in s.get("api_calls", [])]
+                s["report_links"] = [ReportLink(**link) for link in s.get("report_links", [])]
                 store.scenarios.append(ScenarioRecord(**s))
         return store

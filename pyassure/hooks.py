@@ -100,6 +100,7 @@ def after_all(context):
         if not context.worker:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             backup = backup_validation_report(context.report_dir, html, timestamp)
+            write_html_report(context.store, backup)
             print(f"\nPyAssure report : {html}\nBackup report   : {backup}")
     services.stop(_server)
 
